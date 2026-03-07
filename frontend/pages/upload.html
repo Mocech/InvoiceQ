@@ -1,0 +1,856 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Invoice - InvoiceIQ</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <style>
+    /* ── Layout ─────────────────────────────────────────────── */
+    .dashboard-container {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* page-wrapper: sits beside the fixed sidebar */
+    .page-wrapper {
+      margin-left: 260px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ── Sidebar overlay (mobile) ───────────────────────────── */
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(10, 20, 40, 0.5);
+      z-index: 99;
+      backdrop-filter: blur(2px);
+    }
+    .sidebar-overlay.show { display: block; }
+
+    /* ── Page content area ──────────────────────────────────── */
+    .page-title {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text-dark);
+      margin-bottom: 6px;
+    }
+
+    .page-subtitle {
+      font-size: 14px;
+      color: var(--text-light);
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+
+    /* ── Drag & drop card ───────────────────────────────────── */
+    .drag-drop-card {
+      background-color: var(--white);
+      border-radius: 14px;
+      padding: 32px;
+      margin-bottom: 20px;
+      box-shadow: 0 1px 4px rgba(15, 27, 45, 0.06);
+      border: 1px solid var(--border-light);
+    }
+
+    .drag-drop-zone {
+      border: 2px dashed var(--border-light);
+      border-radius: 12px;
+      padding: 48px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background-color: rgba(30, 58, 95, 0.02);
+      /* tap highlight on mobile */
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .drag-drop-zone:hover,
+    .drag-drop-zone:focus-within {
+      border-color: var(--primary);
+      background-color: rgba(30, 58, 95, 0.05);
+    }
+
+    .drag-drop-zone.active {
+      border-color: var(--primary);
+      background-color: rgba(30, 58, 95, 0.08);
+    }
+
+    .drag-drop-icon {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 16px;
+      background-color: var(--primary);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .drag-drop-text {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-dark);
+      margin-bottom: 6px;
+    }
+
+    .drag-drop-subtext {
+      font-size: 14px;
+      color: var(--text-light);
+      margin-bottom: 4px;
+    }
+
+    .drag-drop-link {
+      color: var(--primary);
+      text-decoration: underline;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Mobile-friendly tap-to-upload button (shown only on touch devices) */
+    .mobile-upload-btn {
+      display: none;
+      margin: 14px auto 0;
+      padding: 10px 24px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      align-items: center;
+      gap: 7px;
+    }
+    .mobile-upload-btn svg { width: 15px; height: 15px; stroke: #fff; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+    .file-formats {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-light);
+      flex-wrap: wrap;
+    }
+
+    .format-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .format-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--bg-light);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .format-icon svg { width: 20px; height: 20px; stroke: var(--text-light); }
+
+    .format-label {
+      font-size: 11px;
+      color: var(--text-light);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .file-limit {
+      font-size: 12px;
+      color: var(--text-light);
+      text-align: center;
+      margin-top: 14px;
+    }
+
+    .file-input { display: none; }
+
+    /* ── Selected file card ─────────────────────────────────── */
+    .file-card {
+      background-color: var(--white);
+      border: 1px solid var(--border-light);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+      border-left: 4px solid var(--success);
+      box-shadow: 0 1px 4px rgba(15, 27, 45, 0.05);
+    }
+
+    .file-card.hidden { display: none; }
+
+    .file-icon {
+      width: 44px;
+      height: 44px;
+      background-color: var(--bg-light);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .file-icon svg { width: 22px; height: 22px; stroke: var(--primary); fill: none; stroke-width: 2; }
+
+    .file-info { flex: 1; min-width: 0; }
+
+    .file-name {
+      font-weight: 600;
+      color: var(--text-dark);
+      margin-bottom: 3px;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .file-size {
+      font-size: 12px;
+      color: var(--text-light);
+    }
+
+    .file-check {
+      width: 30px;
+      height: 30px;
+      background-color: var(--success);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--white);
+      font-weight: 700;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    /* ── Process button ─────────────────────────────────────── */
+    .process-button {
+      width: 100%;
+      padding: 14px;
+      background-color: var(--primary);
+      color: var(--white);
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 50px;
+      box-shadow: 0 2px 8px rgba(30, 58, 95, 0.2);
+    }
+
+    .process-button:hover:not(:disabled) {
+      background-color: #152847;
+      box-shadow: 0 4px 14px rgba(30, 58, 95, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .process-button:disabled {
+      background-color: #9BA8B5;
+      cursor: not-allowed;
+      opacity: 0.6;
+      box-shadow: none;
+      transform: none;
+    }
+
+    /* ── Security banner ────────────────────────────────────── */
+    .security-banner {
+      background-color: var(--white);
+      border: 1px solid var(--border-light);
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .security-icon {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      background: #EEF3FB;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .security-icon svg { width: 16px; height: 16px; stroke: var(--primary); fill: none; stroke-width: 2; }
+
+    .security-text {
+      font-size: 13px;
+      color: var(--text-light);
+      line-height: 1.6;
+    }
+
+    /* ── user-info-compact hide on small screens ────────────── */
+    .user-info-compact {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════════════════════ */
+
+    /* Tablet: narrow the padding */
+    @media (max-width: 1024px) {
+      .drag-drop-card { padding: 24px; }
+      .drag-drop-zone { padding: 40px 24px; }
+    }
+
+    /* Mobile: sidebar becomes a drawer */
+    @media (max-width: 900px) {
+      /* page-wrapper takes full width */
+      .page-wrapper {
+        margin-left: 0 !important;
+      }
+
+      /* sidebar slides in from left as a drawer */
+      .sidebar {
+        position: fixed !important;
+        left: 0; top: 0; bottom: 0;
+        transform: translateX(-100%);
+        z-index: 100;
+        width: 260px !important;
+        box-shadow: 4px 0 24px rgba(15, 27, 45, 0.18);
+        transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+      }
+      .sidebar.mobile-open {
+        transform: translateX(0) !important;
+      }
+
+      /* top-nav spans full width */
+      .top-nav {
+        left: 0 !important;
+      }
+
+      /* show hamburger */
+      .hamburger { display: flex !important; }
+
+      /* hide the compact user text in nav — avatar is enough */
+      .user-info-compact { display: none; }
+
+      /* main content padding */
+      .main-content { padding: 20px 16px 40px; }
+    }
+
+    @media (max-width: 640px) {
+      .page-title { font-size: 22px; }
+      .page-subtitle { font-size: 13px; margin-bottom: 20px; }
+
+      .drag-drop-card { padding: 16px; border-radius: 12px; }
+      .drag-drop-zone { padding: 28px 12px; }
+      .drag-drop-icon { width: 56px; height: 56px; border-radius: 10px; }
+      .drag-drop-icon svg { width: 28px; height: 28px; }
+      .drag-drop-text { font-size: 15px; }
+
+      /* On small phones hide the "drag & drop" instruction and show tap button instead */
+      .drag-drop-subtext { display: none; }
+      .mobile-upload-btn { display: inline-flex; }
+
+      .file-formats { gap: 16px; }
+
+      .process-button { font-size: 14px; padding: 13px; }
+
+      .security-banner { flex-direction: column; gap: 8px; }
+      .security-icon { width: 28px; height: 28px; }
+    }
+
+    @media (max-width: 400px) {
+      .drag-drop-zone { padding: 24px 10px; }
+      .format-item { min-width: 50px; }
+    }
+
+    /* ── Processing Modal ──────────────────────────────────────────── */
+    .processing-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: rgba(10, 20, 40, 0.65);
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .processing-overlay.active { display: flex; }
+
+    .processing-modal {
+      background: #fff;
+      border-radius: 16px;
+      padding: 24px 22px 20px;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: 0 24px 64px rgba(10,20,40,0.28), 0 0 0 1px rgba(255,255,255,0.06);
+      animation: pmIn 0.25s cubic-bezier(0.34,1.4,0.64,1);
+    }
+    @keyframes pmIn {
+      from { opacity:0; transform: scale(0.94) translateY(10px); }
+      to   { opacity:1; transform: scale(1)    translateY(0); }
+    }
+
+    /* header row */
+    .pm-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .pm-icon-wrap {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      background: #EEF3FB;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .pm-icon-wrap svg {
+      width: 18px; height: 18px;
+      stroke: var(--primary); fill: none;
+      stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+    }
+    .pm-header-text { flex: 1; min-width: 0; }
+    .pm-title {
+      font-size: 14px; font-weight: 700; color: var(--text-dark);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .pm-subtitle { font-size: 11px; color: var(--text-light); margin-top: 1px; }
+    .pm-percent {
+      font-size: 18px; font-weight: 700; color: var(--primary);
+      flex-shrink: 0; min-width: 42px; text-align: right;
+    }
+
+    /* bar */
+    .pm-bar-track {
+      height: 4px; background: #EEF0F5;
+      border-radius: 99px; overflow: hidden; margin-bottom: 16px;
+    }
+    .pm-bar-fill {
+      height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--primary), #3B7DD8);
+      border-radius: 99px;
+      transition: width 0.55s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    /* steps */
+    .pm-steps { display: flex; flex-direction: column; gap: 2px; margin-bottom: 16px; }
+
+    .pm-step {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 10px; border-radius: 8px;
+      transition: background 0.2s;
+    }
+    .pm-step.step-active    { background: #F0F5FF; }
+    .pm-step.step-completed { background: #F2FAF6; }
+
+    .pm-step-icon {
+      width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      border: 1.5px solid #DDE3EC; background: #F7F8FA;
+      transition: all 0.2s;
+    }
+    .pm-step.step-completed .pm-step-icon { background: var(--success); border-color: var(--success); }
+    .pm-step.step-active    .pm-step-icon { background: var(--primary); border-color: var(--primary); }
+
+    .pm-step-icon svg {
+      width: 12px; height: 12px;
+      stroke: #B0BAC9; fill: none;
+      stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
+    }
+    .pm-step.step-completed .pm-step-icon svg,
+    .pm-step.step-active    .pm-step-icon svg { stroke: #fff; }
+
+    .pm-step.step-active .pm-step-icon svg.spin-icon { animation: pmSpin 0.9s linear infinite; }
+    @keyframes pmSpin { to { transform: rotate(360deg); } }
+
+    .pm-step-name { font-size: 12px; font-weight: 600; color: var(--text-dark); }
+    .pm-step.step-pending .pm-step-name { color: #B8C2CC; font-weight: 500; }
+    .pm-step-status { font-size: 10px; color: var(--text-light); margin-top: 1px; }
+    .pm-step.step-completed .pm-step-status { color: var(--success); }
+    .pm-step.step-active    .pm-step-status { color: var(--primary); font-weight: 600; }
+    .pm-step.step-pending   .pm-step-status { color: #CDD4DC; }
+
+    /* footer */
+    .pm-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding-top: 14px; border-top: 1px solid var(--border-light);
+    }
+    .pm-lock-note {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 10px; font-weight: 600; color: var(--text-light);
+      text-transform: uppercase; letter-spacing: 0.4px;
+    }
+    .pm-lock-note svg {
+      width: 11px; height: 11px;
+      stroke: var(--text-light); fill: none;
+      stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
+    }
+    .pm-cancel-btn {
+      font-size: 11px; color: #B0BAC9; background: none;
+      border: none; cursor: pointer; padding: 3px 7px;
+      border-radius: 5px; transition: all 0.15s; font-weight: 500;
+    }
+    .pm-cancel-btn:hover { background: #FEF2F2; color: var(--danger); }
+  </style>
+</head>
+<body>
+  <div class="dashboard-container">
+    <!-- Sidebar overlay for mobile -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="mainSidebar">
+      <!-- Collapse toggle — sits on aside directly, NOT inside scroll container -->
+      <button class="collapse-btn" onclick="toggleSidebarCollapse()" title="Collapse sidebar" aria-label="Collapse sidebar">
+        <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+
+      <!-- Inner scroll container — scrollbar stays here, away from collapse button -->
+      <div class="sidebar-scroll">
+      <div class="sidebar-logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
+        <span>InvoiceIQ</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="/dashboard/">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          <span>Dashboard</span>
+        </a>
+        <a href="/upload/" class="active">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+          <span>Upload Invoice</span>
+        </a>
+        <a href="/history/">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M3 21v-5h5"></path><polyline points="12 7 12 12 16 14"></polyline></svg>
+          <span>Document History</span>
+        </a>
+        <a href="/reports/">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+          <span>Reports</span>
+        </a>
+        <a href="#">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+          <span>Batch Upload</span>
+        </a>
+        <a href="#">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          <span>Team Members</span>
+        </a>
+        <a href="#">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><path d="M1 8h22"></path></svg>
+          <span>Billing</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-section-label">System</div>
+
+      <nav class="sidebar-nav">
+        <a href="#">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"></circle><path d="M12 1v6m0 6v6"></path><path d="M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24"></path><path d="M1 12h6m6 0h6"></path><path d="M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"></path></svg>
+          <span>Settings</span>
+        </a>
+        <a href="#">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          <span>Audit Logs</span>
+        </a>
+        <button class="sidebar-logout" onclick="handleLogout(event)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          <span>Log Out</span>
+        </button>
+      </nav>
+
+          <div class="sidebar-spacer"></div>
+
+    <!-- User block -->
+    <div class="sidebar-user-block">
+      <div class="sidebar-user-inner" id="sbuTrigger" onclick="toggleUserMenu()">
+        <div class="sbu-avatar sidebar-user-avatar" data-user-initials>SK</div>
+        <div class="sbu-info">
+          <div class="sbu-name sidebar-user-name" data-user-name>Sarah Jenkins</div>
+          <div class="sbu-role sidebar-user-role" data-user-role>Enterprise Admin</div>
+        </div>
+        <button class="sbu-menu-btn" aria-label="User menu">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+        </button>
+        <div class="sbu-dropdown" id="sbuDropdown">
+          <div class="sbu-dropdown-header">
+            <div class="sbu-dropdown-name sidebar-user-name" data-user-name>Sarah Jenkins</div>
+            <div class="sbu-dropdown-email" data-user-email>user@company.com</div>
+          </div>
+          <a href="#" class="sbu-dropdown-item"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>My Profile</a>
+          <a href="#" class="sbu-dropdown-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>Settings</a>
+          <div class="sbu-dropdown-divider"></div>
+          <button class="sbu-dropdown-item danger" onclick="handleLogout(event)"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Log Out</button>
+        </div>
+      </div>
+    </div>
+
+      <div class="sidebar-storage">
+        <div class="storage-label">Usage</div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: 75%;"></div>
+        </div>
+        <div class="storage-text">750 / 1,000 invoices processed</div>
+      </div>
+      </div><!-- end .sidebar-scroll -->
+    </aside>
+
+    <div class="page-wrapper">
+      <!-- Top Navigation -->
+      <nav class="top-nav">
+        <div class="nav-left">
+          <button class="hamburger" id="hamburgerBtn" onclick="openMobileSidebar()" aria-label="Open menu">
+            <span></span><span></span><span></span>
+          </button>
+          <div class="nav-greeting">Upload Invoice</div>
+        </div>
+        <div class="nav-right">
+          <div class="user-info-compact">
+            <span style="font-size:13px; font-weight:600; color:var(--text-dark);">Sarah Jenkins</span>
+            <span style="font-size:11px; color:var(--text-light);">Enterprise Admin</span>
+          </div>
+          <button class="nav-icon" data-notification-bell aria-label="Notifications">
+            <svg viewBox="0 0 24 24">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
+            <div class="notification-badge"></div>
+          </button>
+          <div class="user-avatar">SK</div>
+        </div>
+        <div class="notification-dropdown">
+          <div class="notification-item">
+            <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">Processing Complete</div>
+            <div style="font-size: 12px; color: var(--text-light);">Invoice INV-00421 processed successfully</div>
+            <div style="font-size: 11px; color: var(--text-light); margin-top: 4px;">2 hours ago</div>
+          </div>
+          <div class="notification-item">
+            <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">Review Required</div>
+            <div style="font-size: 12px; color: var(--text-light);">Invoice INV-00420 needs manual review</div>
+            <div style="font-size: 11px; color: var(--text-light); margin-top: 4px;">4 hours ago</div>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        <div class="breadcrumb">
+          <a href="/dashboard/">Dashboard</a>
+          <span class="breadcrumb-separator">/</span>
+          <span class="breadcrumb-current">Upload Invoice</span>
+        </div>
+        <h1 class="page-title">Upload Invoices</h1>
+        <p class="page-subtitle">Add documents to your queue for intelligent data extraction.</p>
+
+        <!-- Drag and Drop Zone — NO onclick here, handled by main.js setupFileUpload() -->
+        <div class="drag-drop-card">
+          <div class="drag-drop-zone">
+            <div class="drag-drop-icon">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            </div>
+            <div class="drag-drop-text">Drag & drop files here</div>
+            <div class="drag-drop-subtext">or <span class="drag-drop-link">Click to upload</span></div>
+            <button class="mobile-upload-btn" type="button" onclick="document.querySelector('[data-file-input]').click()">
+              <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Tap to select file
+            </button>
+
+            <div class="file-formats">
+              <div class="format-item">
+                <div class="format-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
+                </div>
+                <div class="format-label">PDF</div>
+              </div>
+              <div class="format-item">
+                <div class="format-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                </div>
+                <div class="format-label">JPG</div>
+              </div>
+              <div class="format-item">
+                <div class="format-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                </div>
+                <div class="format-label">PNG</div>
+              </div>
+            </div>
+            <div class="file-limit">Supports PDF, JPG, PNG — Max 10MB</div>
+          </div>
+        </div>
+        <!-- END drag-drop-card -->
+
+        <!-- File input OUTSIDE the drag-drop zone -->
+        <input type="file" class="file-input" data-file-input accept=".pdf,.jpg,.jpeg,.png">
+
+        <!-- Selected file preview card -->
+        <div class="file-card hidden" data-file-card>
+          <div class="file-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
+          </div>
+          <div class="file-info">
+            <div class="file-name" data-file-name></div>
+            <div class="file-size" data-file-size></div>
+          </div>
+          <div class="file-check">✓</div>
+        </div>
+
+        <!-- Process button -->
+        <button class="process-button" onclick="handleProcessInvoice(event)" disabled>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="display: inline-block; margin-right: 8px; vertical-align: middle;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+          Process Invoice
+        </button>
+
+        <!-- Security banner -->
+        <div class="security-banner">
+          <div class="security-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          </div>
+          <div class="security-text">
+            Your documents are processed using secure end-to-end encryption. InvoiceIQ complies with SOC2 and GDPR standards for enterprise-grade security.
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+
+  <!-- Processing Modal -->
+  <div class="processing-overlay" id="processingModal">
+    <div class="processing-modal">
+
+      <div class="pm-header">
+        <div class="pm-icon-wrap">
+          <svg viewBox="0 0 24 24">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="9" y1="13" x2="15" y2="13"/>
+            <line x1="9" y1="17" x2="12" y2="17"/>
+          </svg>
+        </div>
+        <div class="pm-header-text">
+          <div class="pm-title" id="modalTitle">Analyzing Invoice</div>
+          <div class="pm-subtitle">AI extraction in progress</div>
+        </div>
+        <div class="pm-percent" id="modalProgressPercent">0%</div>
+      </div>
+
+      <div class="pm-bar-track">
+        <div class="pm-bar-fill" id="modalBarFill"></div>
+      </div>
+
+      <div class="pm-steps">
+        <div class="pm-step step-completed" data-modal-step="1">
+          <div class="pm-step-icon">
+            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div>
+            <div class="pm-step-name">File Uploaded</div>
+            <div class="pm-step-status">Complete</div>
+          </div>
+        </div>
+        <div class="pm-step step-pending" data-modal-step="2">
+          <div class="pm-step-icon">
+            <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
+          <div>
+            <div class="pm-step-name">OCR Scan</div>
+            <div class="pm-step-status">Pending</div>
+          </div>
+        </div>
+        <div class="pm-step step-pending" data-modal-step="3">
+          <div class="pm-step-icon">
+            <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
+          </div>
+          <div>
+            <div class="pm-step-name">AI Data Extraction</div>
+            <div class="pm-step-status">Pending</div>
+          </div>
+        </div>
+        <div class="pm-step step-pending" data-modal-step="4">
+          <div class="pm-step-icon">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+          </div>
+          <div>
+            <div class="pm-step-name">Preparing Review</div>
+            <div class="pm-step-status">Pending</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="pm-footer">
+        <div class="pm-lock-note">
+          <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Keep this tab open
+        </div>
+        <button class="pm-cancel-btn" onclick="handleCancelProcessing()">Cancel</button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const COLLAPSE_KEY = 'sb_collapsed';
+
+    function toggleSidebarCollapse() {
+      const sidebar = document.getElementById('mainSidebar');
+      if (!sidebar) return;
+      const collapsed = sidebar.classList.toggle('collapsed');
+      collapsed
+        ? localStorage.setItem(COLLAPSE_KEY, '1')
+        : localStorage.removeItem(COLLAPSE_KEY);
+    }
+
+    function openMobileSidebar() {
+      const sidebar = document.getElementById('mainSidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      if (sidebar) sidebar.classList.add('mobile-open');
+      if (overlay) overlay.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeMobileSidebar() {
+      const sidebar = document.getElementById('mainSidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      if (sidebar) sidebar.classList.remove('mobile-open');
+      if (overlay) overlay.classList.remove('show');
+      document.body.style.overflow = '';
+    }
+
+    // Restore collapse state + wire mobile nav links
+    document.addEventListener('DOMContentLoaded', function () {
+      const sidebar = document.getElementById('mainSidebar');
+      if (sidebar && localStorage.getItem(COLLAPSE_KEY) && window.innerWidth > 900) {
+        sidebar.classList.add('collapsed');
+      }
+      document.querySelectorAll('.sidebar-nav a').forEach(function (a) {
+        a.addEventListener('click', function () {
+          if (window.innerWidth <= 900) closeMobileSidebar();
+        });
+      });
+    });
+  </script>
+  <script src="{% static 'js/main.js' %}"></script>
+</body>
+</html>

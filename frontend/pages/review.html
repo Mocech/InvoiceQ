@@ -1,0 +1,951 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Review Invoice - InvoiceIQ</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; background: #F0F2F7; }
+
+    .dashboard-container { display: flex; min-height: 100vh; }
+    .page-wrapper { flex: 1; min-width: 0; overflow: hidden; }
+
+    /* ═══════════════════════════════════════════
+       SIDEBAR EXTRAS (matching dashboard)
+    ═══════════════════════════════════════════ */
+    :root {
+      --sidebar-width: 260px;
+      --sidebar-width-collapsed: 64px;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-spacer { flex: 1; }
+
+    .sidebar-user-block {
+      padding: 12px 16px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .sidebar-user-inner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+      position: relative;
+    }
+    .sidebar-user-inner:hover { background: rgba(255,255,255,0.07); }
+
+    .sbu-avatar {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      border: 1.5px solid rgba(255,255,255,0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: #fff;
+      flex-shrink: 0;
+    }
+
+    .sbu-info { flex: 1; min-width: 0; }
+    .sbu-name {
+      font-size: 13px; font-weight: 600; color: #fff;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sbu-role { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 1px; }
+
+    .sbu-menu-btn {
+      width: 26px; height: 26px;
+      border-radius: 6px;
+      background: none; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .sbu-menu-btn:hover { background: rgba(255,255,255,0.1); }
+    .sbu-menu-btn svg { stroke: rgba(255,255,255,0.5); }
+
+    .sbu-dropdown {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 0; right: 0;
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid var(--border-light);
+      box-shadow: 0 8px 24px rgba(15,27,45,0.16);
+      overflow: hidden;
+      z-index: 200;
+    }
+    .sbu-dropdown.open { display: block; }
+
+    .sbu-dropdown-header {
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .sbu-dropdown-name { font-size: 13px; font-weight: 700; color: var(--text-dark); }
+    .sbu-dropdown-email { font-size: 11px; color: var(--text-light); margin-top: 1px; }
+
+    .sbu-dropdown-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 14px;
+      font-size: 13px; color: var(--text-dark);
+      cursor: pointer; transition: background 0.13s;
+      background: none; border: none; width: 100%; text-align: left;
+      font-family: 'DM Sans', sans-serif;
+      text-decoration: none;
+    }
+    .sbu-dropdown-item:hover { background: var(--bg-light); }
+    .sbu-dropdown-item svg { width: 14px; height: 14px; stroke: var(--text-light); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+    .sbu-dropdown-item.danger { color: var(--danger); }
+    .sbu-dropdown-item.danger svg { stroke: var(--danger); }
+    .sbu-dropdown-divider { height: 1px; background: var(--border-light); margin: 2px 0; }
+
+    /* Mobile sidebar overlay */
+    .sidebar-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(10,20,40,0.5);
+      z-index: 99;
+      backdrop-filter: blur(2px);
+    }
+    .sidebar-overlay.show { display: block; }
+
+    @media (max-width: 900px) {
+      .page-wrapper { margin-left: 0 !important; }
+      .sidebar {
+        position: fixed !important;
+        left: 0; top: 0; bottom: 0;
+        transform: translateX(-100%);
+        z-index: 100;
+        width: 260px !important;
+        box-shadow: 4px 0 24px rgba(15,27,45,0.18);
+      }
+      .sidebar.mobile-open {
+        transform: translateX(0) !important;
+      }
+      .sidebar.collapsed { width: 260px !important; transform: translateX(-100%); }
+      .collapse-btn { display: none !important; }
+    }
+
+    /* ── top nav extras ─────────────────────────────────────── */
+    .rmode-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 10px 3px 8px;
+      background: #EEF3FB; border: 1px solid #D0DCF0;
+      border-radius: 99px;
+      font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+      text-transform: uppercase; color: var(--primary);
+    }
+    .rmode-badge svg { width: 12px; height: 12px; stroke: var(--primary); fill: none; stroke-width: 2; stroke-linecap: round; }
+
+    .inv-chip {
+      font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500;
+      color: var(--text-dark); background: #fff;
+      border: 1px solid var(--border-light);
+      padding: 3px 10px; border-radius: 6px;
+    }
+    .inv-chip[data-invoice-number]:empty::after { content: '—'; color: var(--text-light); }
+
+    /* ── page ───────────────────────────────────────────────── */
+    .main-content {
+      padding: 28px 28px 56px;
+    }
+
+    /* ── flag banner ────────────────────────────────────────── */
+    .flag-banner {
+      display: none;
+      align-items: flex-start;
+      gap: 12px;
+      background: #FFFBEB;
+      border: 1px solid #FDE68A;
+      border-left: 4px solid var(--warning);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 20px;
+      animation: fadeSlideDown 0.3s ease;
+    }
+    .flag-banner.show { display: flex; }
+    @keyframes fadeSlideDown {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .flag-icon-wrap {
+      width: 34px; height: 34px; border-radius: 8px;
+      background: #FEF3C7;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .flag-icon-wrap svg { width: 16px; height: 16px; stroke: #D97706; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .flag-title { font-size: 13px; font-weight: 700; color: #92400E; margin-bottom: 2px; }
+    .flag-body  { font-size: 12px; color: #B45309; line-height: 1.5; }
+
+    /* ── page heading row ───────────────────────────────────── */
+    .pg-heading {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      margin-bottom: 22px; gap: 12px; flex-wrap: wrap;
+    }
+    .pg-heading h1 { font-size: 20px; font-weight: 700; color: var(--text-dark); margin-bottom: 3px; }
+    .pg-heading p  { font-size: 13px; color: var(--text-light); line-height: 1.5; max-width: 500px; }
+
+    /* ── two-col grid ───────────────────────────────────────── */
+    .review-grid {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) 380px;
+      gap: 20px;
+      align-items: start;
+    }
+
+    /* ── card ───────────────────────────────────────────────── */
+    .rv-card {
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid var(--border-light);
+      box-shadow: 0 1px 4px rgba(15,27,45,0.05);
+      overflow: hidden;
+    }
+    .rv-card + .rv-card { margin-top: 18px; }
+
+    .rv-card-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border-light);
+      background: #FAFBFC;
+    }
+    .rv-card-title {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--text-dark);
+    }
+    .rv-card-title svg { width: 14px; height: 14px; stroke: var(--primary); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .rv-card-hint { font-size: 11px; color: var(--text-light); }
+
+    /* ── document preview ───────────────────────────────────── */
+    .doc-toolbar {
+      display: flex; gap: 6px; padding: 12px 16px 0;
+    }
+    .tbtn {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 11px;
+      border: 1px solid var(--border-light);
+      border-radius: 7px;
+      background: var(--bg-light);
+      font-size: 12px; font-weight: 600; color: var(--text-dark);
+      cursor: pointer; transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+    }
+    .tbtn:hover { background: #fff; border-color: var(--primary); color: var(--primary); }
+    .tbtn svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .doc-frame-wrap { padding: 12px 16px 16px; }
+    .doc-frame {
+      width: 100%; height: 520px;
+      border-radius: 10px; overflow: hidden;
+      border: 1px solid var(--border-light);
+      background: #fff;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: inset 0 1px 3px rgba(15,27,45,0.04);
+      position: relative;
+    }
+    /* iframe inside the doc-frame fills cleanly */
+    .doc-frame iframe {
+      width: 100%; height: 100%;
+      border: none; border-radius: 10px;
+      display: block;
+    }
+    /* image preview */
+    .doc-frame img {
+      width: 100%; height: 100%;
+      object-fit: contain; border-radius: 10px;
+      display: block;
+    }
+    .doc-empty {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      color: var(--text-light);
+    }
+    .doc-empty svg { width: 44px; height: 44px; stroke: #C8D2DE; fill: none; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+    .doc-empty span { font-size: 13px; }
+
+    /* ── confidence strip ───────────────────────────────────── */
+    .conf-strip {
+      margin: 16px 18px 0;
+      padding: 14px 16px;
+      background: linear-gradient(135deg, #EEF3FB 0%, #E8F0FD 100%);
+      border: 1px solid #D0DCF0;
+      border-radius: 10px;
+    }
+    .conf-strip-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+    .conf-strip-lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #4A6FA5; }
+    .conf-score { font-size: 22px; font-weight: 700; color: var(--primary); font-family: 'DM Mono', monospace; }
+    .conf-track { height: 5px; background: #C8D5EE; border-radius: 99px; overflow: hidden; margin-bottom: 9px; }
+    .conf-fill  { height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary) 0%, #3B7DD8 100%); border-radius: 99px; transition: width 0.9s cubic-bezier(.4,0,.2,1); }
+    .conf-meta  { display: flex; gap: 14px; font-size: 11px; color: #4A6FA5; }
+    .conf-meta-i { display: flex; align-items: center; gap: 4px; }
+    .conf-meta-i svg { width: 10px; height: 10px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .conf-meta-i strong { font-weight: 700; }
+
+    /* ── fields list ────────────────────────────────────────── */
+    .fields-body { padding: 4px 18px 8px; }
+
+    .field-row {
+      padding: 11px 0;
+      border-bottom: 1px solid #F0F2F6;
+      animation: rowIn 0.25s ease both;
+    }
+    .field-row:last-child { border-bottom: none; }
+    @keyframes rowIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+    .field-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .field-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.4px; color: var(--text-light);
+    }
+
+    /* badges */
+    .cbadge {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 2px 7px; border-radius: 99px;
+      font-size: 10px; font-weight: 700; font-family: 'DM Mono', monospace;
+    }
+    .cbadge svg { width: 9px; height: 9px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .cbadge.high   { background: #D1FAE5; color: #065F46; }
+    .cbadge.medium { background: #FEF3C7; color: #92400E; }
+    .cbadge.low    { background: #FEE2E2; color: #991B1B; }
+
+    /* confidence-badge class (injected by main.js) */
+    .confidence-badge {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 2px 7px; border-radius: 99px;
+      font-size: 10px; font-weight: 700; font-family: 'DM Mono', monospace;
+    }
+    .confidence-badge.confidence-high   { background: #D1FAE5; color: #065F46; }
+    .confidence-badge.confidence-medium { background: #FEF3C7; color: #92400E; }
+    .confidence-badge.confidence-low    { background: #FEE2E2; color: #991B1B; }
+
+    .field-input {
+      width: 100%; padding: 9px 12px;
+      border: 1.5px solid var(--border-light); border-radius: 8px;
+      font-size: 13px; font-family: 'DM Sans', sans-serif;
+      color: var(--text-dark); background: #fff;
+      outline: none; transition: border-color 0.18s, box-shadow 0.18s;
+    }
+    .field-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(30,58,95,0.08); }
+    .field-input.confidence-medium { border-color: #FDE68A; background: #FFFDF0; }
+    .field-input.confidence-low    { border-color: #FECACA; background: #FFF9F9; }
+
+    .field-warning {
+      display: flex; align-items: center; gap: 5px;
+      margin-top: 5px; font-size: 11px; color: #B45309; font-weight: 500;
+    }
+    .field-warning svg { width: 11px; height: 11px; stroke: #D97706; fill: none; stroke-width: 2.5; stroke-linecap: round; flex-shrink: 0; }
+
+    /* ── section divider ────────────────────────────────────── */
+    .sect-label {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--text-light);
+      padding: 14px 18px 10px;
+      border-top: 1px solid var(--border-light);
+    }
+    .sect-label svg { width: 12px; height: 12px; stroke: var(--text-light); fill: none; stroke-width: 2; stroke-linecap: round; }
+
+    /* ── line items table ───────────────────────────────────── */
+    .li-wrap { padding: 0 18px 18px; overflow-x: auto; }
+    .li-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .li-table thead { background: var(--bg-light); }
+    .li-table th {
+      padding: 8px 10px; text-align: left;
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px;
+      color: var(--text-light); border-bottom: 1px solid var(--border-light);
+    }
+    .li-table td { padding: 10px 10px; border-bottom: 1px solid #F0F2F6; color: var(--text-dark); vertical-align: middle; }
+    .li-table tr:last-child td { border-bottom: none; }
+    .li-table td:nth-child(2) { text-align: center; }
+    .li-table th:nth-child(3), .li-table td:nth-child(3),
+    .li-table th:nth-child(4), .li-table td:nth-child(4) { text-align: right; }
+    .li-table th:last-child, .li-table td:last-child { text-align: center; }
+    .li-table td:nth-child(3),
+    .li-table td:nth-child(4) { font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 600; }
+    .li-table td:nth-child(4) { color: var(--primary); }
+
+    /* ── right panel ────────────────────────────────────────── */
+    .right-col { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 84px; }
+
+    /* action card */
+    .action-body { padding: 20px; }
+    .action-heading { font-size: 14px; font-weight: 700; color: var(--text-dark); margin-bottom: 3px; }
+    .action-sub { font-size: 12px; color: var(--text-light); margin-bottom: 20px; line-height: 1.55; }
+
+    .btn-approve {
+      width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 13px; border: none; border-radius: 10px;
+      background: var(--success); color: #fff;
+      font-size: 14px; font-weight: 700; font-family: 'DM Sans', sans-serif;
+      cursor: pointer; transition: all 0.2s;
+      box-shadow: 0 2px 10px rgba(39,174,96,0.28);
+      margin-bottom: 9px;
+    }
+    .btn-approve:hover { background: #1E9E4A; box-shadow: 0 4px 16px rgba(39,174,96,0.38); transform: translateY(-1px); }
+    .btn-approve svg { width: 16px; height: 16px; stroke: #fff; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+    .btn-reject {
+      width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 11px; border: 1.5px solid #FECACA; border-radius: 10px;
+      background: #fff; color: var(--danger);
+      font-size: 13px; font-weight: 600; font-family: 'DM Sans', sans-serif;
+      cursor: pointer; transition: all 0.18s; margin-bottom: 9px;
+    }
+    .btn-reject:hover { background: #FEF2F2; border-color: var(--danger); }
+    .btn-reject svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+    .divider-or {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; color: var(--text-light); margin: 4px 0;
+    }
+    .divider-or::before, .divider-or::after { content: ''; flex: 1; height: 1px; background: var(--border-light); }
+
+    .btn-flag {
+      width: 100%; display: flex; align-items: center; justify-content: center; gap: 7px;
+      padding: 10px; border: 1.5px solid var(--border-light); border-radius: 10px;
+      background: transparent; color: var(--text-light);
+      font-size: 12px; font-weight: 600; font-family: 'DM Sans', sans-serif;
+      cursor: pointer; transition: all 0.18s;
+    }
+    .btn-flag:hover { background: #FFFBEB; border-color: #FDE68A; color: #92400E; }
+    .btn-flag svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* shortcuts card */
+    .shortcuts-body { padding: 14px 16px; }
+    .shortcuts-title {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--text-light); margin-bottom: 12px;
+    }
+    .shortcuts-title svg { width: 13px; height: 13px; stroke: var(--text-light); fill: none; stroke-width: 2; stroke-linecap: round; }
+
+    .sc-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 0; border-bottom: 1px solid #F0F2F6;
+    }
+    .sc-row:last-child { border-bottom: none; }
+    .sc-label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-light); }
+    .sc-label svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .sc-key {
+      width: 24px; height: 24px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--bg-light); border: 1px solid var(--border-light);
+      border-radius: 5px; box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+      font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 600; color: var(--text-dark);
+    }
+
+    /* security card */
+    .sec-body { padding: 14px 16px; display: flex; align-items: flex-start; gap: 11px; }
+    .sec-icon {
+      width: 34px; height: 34px; border-radius: 8px;
+      background: #EEF3FB; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .sec-icon svg { width: 15px; height: 15px; stroke: var(--primary); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .sec-title { font-size: 12px; font-weight: 700; color: var(--text-dark); margin-bottom: 3px; }
+    .sec-desc  { font-size: 11px; color: var(--text-light); line-height: 1.55; }
+
+    /* skeleton loading */
+    .skel { background: linear-gradient(90deg, #ECEEF3 25%, #E2E5EC 50%, #ECEEF3 75%); background-size: 200% 100%; animation: skel 1.4s infinite; border-radius: 6px; }
+    @keyframes skel { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+    /* ── responsive ─────────────────────────────────────────── */
+    @media (max-width: 1080px) {
+      .review-grid { grid-template-columns: 1fr; }
+      .right-col { position: static; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      .right-col > .rv-card:first-child { grid-column: 1 / -1; }
+    }
+    @media (max-width: 700px) {
+      .main-content { padding: 14px 14px 40px; margin-left: 0; }
+      .right-col { grid-template-columns: 1fr; }
+      .doc-frame { height: 300px; }
+    }
+  </style>
+</head>
+<body>
+<div class="dashboard-container">
+
+  <!-- Sidebar overlay for mobile -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
+
+  <aside class="sidebar" id="mainSidebar">
+    <!-- Collapse toggle -->
+    <button class="collapse-btn" id="collapseBtn" onclick="toggleSidebarCollapse()" title="Collapse sidebar" aria-label="Collapse sidebar">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+
+    <!-- Inner scroll container -->
+    <div class="sidebar-scroll">
+      <div class="sidebar-logo">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+        <span>InvoiceIQ</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="/dashboard/">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <span>Dashboard</span>
+        </a>
+        <a href="/upload/">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span>Upload Invoice</span>
+        </a>
+        <a href="/history/" class="active">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/><polyline points="12 7 12 12 16 14"/></svg>
+          <span>Document History</span>
+        </a>
+        <a href="/reports/">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          <span>Reports</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-section-label">System</div>
+
+      <nav class="sidebar-nav">
+        <a href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          <span>Settings</span>
+        </a>
+        <a href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>Audit Logs</span>
+        </a>
+      </nav>
+
+      <!-- Push user block to bottom -->
+      <div class="sidebar-spacer"></div>
+
+      <!-- User block -->
+      <div class="sidebar-user-block">
+        <div class="sidebar-user-inner" id="sbuTrigger" onclick="toggleUserMenu()">
+          <div class="sbu-avatar sidebar-user-avatar" data-user-initials>SK</div>
+          <div class="sbu-info">
+            <div class="sbu-name sidebar-user-name" data-user-name>Sarah Jenkins</div>
+            <div class="sbu-role sidebar-user-role" data-user-role>Enterprise Admin</div>
+          </div>
+          <button class="sbu-menu-btn" aria-label="User menu">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+          </button>
+
+          <!-- Dropdown -->
+          <div class="sbu-dropdown" id="sbuDropdown">
+            <div class="sbu-dropdown-header">
+              <div class="sbu-dropdown-name" data-user-name>Sarah Jenkins</div>
+              <div class="sbu-dropdown-email" data-user-email>sarah@company.com</div>
+            </div>
+            <a href="#" class="sbu-dropdown-item">
+              <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              My Profile
+            </a>
+            <a href="#" class="sbu-dropdown-item">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+              Settings
+            </a>
+            <div class="sbu-dropdown-divider"></div>
+            <button class="sbu-dropdown-item danger" onclick="handleLogout(event)">
+              <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Log Out
+            </button>
+          </div>
+        </div>
+      </div>
+    </div><!-- end .sidebar-scroll -->
+  </aside>
+
+  <div class="page-wrapper">
+    <!-- Top Nav -->
+    <nav class="top-nav">
+      <div class="nav-left">
+        <button class="hamburger" onclick="openMobileSidebar()"><span></span><span></span><span></span></button>
+        <div class="rmode-badge">
+          <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          Review Mode
+        </div>
+        <span class="inv-chip" data-invoice-number></span>
+      </div>
+      <div class="nav-right">
+        <button class="nav-icon" data-notification-bell>
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M3 8a7 7 0 1 1 14 0v3l2 2v1H1v-1l2-2V8z" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <path d="M7 18h6" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          <div class="notification-badge"></div>
+        </button>
+        <div class="user-avatar">JD</div>
+      </div>
+      <div class="notification-dropdown">
+        <div class="notification-item">
+          <div class="notification-title">Invoice Ready for Review</div>
+          <div class="notification-time">Just now</div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main -->
+    <main class="main-content">
+
+      <!-- Breadcrumb -->
+      <div class="breadcrumb" style="margin-bottom:18px;">
+        <a href="/dashboard/">Dashboard</a>
+        <span class="breadcrumb-separator">/</span>
+        <a href="/history/">History</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-current" data-invoice-number>—</span>
+      </div>
+
+      <!-- Page heading -->
+      <div class="pg-heading">
+        <div>
+          <h1>Invoice Review — <span data-vendor-name style="font-weight:400;opacity:0.7;"></span></h1>
+          <p>Check the AI-extracted data against the original document. Edit any incorrect fields, then approve or reject below.</p>
+        </div>
+      </div>
+
+      <!-- AI Flag Banner — shown by main.js when ai_flag_message exists -->
+      <div class="flag-banner" id="flagBanner" data-flag-message style="display:none;">
+        <div class="flag-icon-wrap">
+          <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div>
+          <div class="flag-title">AI Flag Detected</div>
+          <div class="flag-body" id="flagBodyText"></div>
+        </div>
+      </div>
+
+      <!-- Review grid -->
+      <div class="review-grid">
+
+        <!-- ── LEFT COLUMN ───────────────────────────────────── -->
+        <div>
+
+          <!-- Document preview card -->
+          <div class="rv-card">
+            <div class="rv-card-head">
+              <div class="rv-card-title">
+                <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="12" y2="17"/></svg>
+                Original Document
+              </div>
+              <div class="doc-toolbar" style="padding:0;margin:0;">
+                <button class="tbtn" onclick="zoomDoc(1.15)">
+                  <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                  Zoom In
+                </button>
+                <button class="tbtn" onclick="zoomDoc(0.87)">
+                  <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                  Zoom Out
+                </button>
+                <button class="tbtn" onclick="zoomDoc('reset')">
+                  <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+                  Reset
+                </button>
+              </div>
+            </div>
+            <div class="doc-frame-wrap">
+              <div class="doc-frame" data-document-preview>
+                <div class="doc-empty">
+                  <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  <span>Loading document preview…</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Extracted fields card -->
+          <div class="rv-card rv-card + rv-card" style="margin-top:18px;">
+            <div class="rv-card-head">
+              <div class="rv-card-title">
+                <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Extracted Fields
+              </div>
+              <span class="rv-card-hint">Click any field to edit</span>
+            </div>
+
+            <!-- Confidence summary -->
+            <div class="conf-strip">
+              <div class="conf-strip-row">
+                <span class="conf-strip-lbl">Overall AI Confidence</span>
+                <span class="conf-score" data-overall-confidence>—</span>
+              </div>
+              <div class="conf-track">
+                <div class="conf-fill" data-confidence-bar></div>
+              </div>
+              <div class="conf-meta">
+                <div class="conf-meta-i">
+                  <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                  <span><strong data-fields-high>—</strong> fields verified</span>
+                </div>
+                <div class="conf-meta-i">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  <span><strong data-fields-review>—</strong> need review</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Fields injected by main.js -->
+            <div class="fields-body">
+              <div data-extracted-fields>
+                <!-- Skeleton placeholders while loading -->
+                <div class="field-row" style="animation-delay:.05s">
+                  <div class="field-top"><div class="skel" style="width:80px;height:11px;"></div></div>
+                  <div class="skel" style="height:37px;border-radius:8px;"></div>
+                </div>
+                <div class="field-row" style="animation-delay:.10s">
+                  <div class="field-top"><div class="skel" style="width:100px;height:11px;"></div></div>
+                  <div class="skel" style="height:37px;border-radius:8px;"></div>
+                </div>
+                <div class="field-row" style="animation-delay:.15s">
+                  <div class="field-top"><div class="skel" style="width:70px;height:11px;"></div></div>
+                  <div class="skel" style="height:37px;border-radius:8px;"></div>
+                </div>
+                <div class="field-row" style="animation-delay:.20s">
+                  <div class="field-top"><div class="skel" style="width:90px;height:11px;"></div></div>
+                  <div class="skel" style="height:37px;border-radius:8px;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Line items -->
+            <div class="sect-label">
+              <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              Line Items
+            </div>
+            <div class="li-wrap">
+              <table class="li-table">
+                <thead>
+                  <tr>
+                    <th>Description</th>
+                    <th>Qty</th>
+                    <th>Unit Price</th>
+                    <th>Total</th>
+                    <th>Confidence</th>
+                  </tr>
+                </thead>
+                <tbody data-line-items>
+                  <tr>
+                    <td colspan="5" style="text-align:center;padding:22px;color:var(--text-light);font-size:13px;">
+                      Loading line items…
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div><!-- /left col -->
+
+        <!-- ── RIGHT COLUMN ──────────────────────────────────── -->
+        <div class="right-col">
+
+          <!-- Decision card -->
+          <div class="rv-card">
+            <div class="rv-card-head">
+              <div class="rv-card-title">
+                <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                Make a Decision
+              </div>
+            </div>
+            <div class="action-body">
+              <div class="action-heading">Ready to finalise this invoice?</div>
+              <div class="action-sub">Verify the extracted fields on the left, correct any errors, then choose an action.</div>
+
+              <button class="btn-approve" onclick="handleApproveInvoice(event)">
+                <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+                Approve &amp; Save
+              </button>
+
+              <button class="btn-reject" onclick="handleRejectInvoice(event)">
+                <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                Reject Document
+              </button>
+
+              <div class="divider-or">or</div>
+
+              <button class="btn-flag" onclick="handleFlagInvoice(event)">
+                <svg viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                Flag for Manager Review
+              </button>
+            </div>
+          </div>
+
+          <!-- Keyboard shortcuts -->
+          <div class="rv-card">
+            <div class="shortcuts-body">
+              <div class="shortcuts-title">
+                <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+                Keyboard Shortcuts
+              </div>
+              <div class="sc-row">
+                <span class="sc-label" style="color:var(--success);">
+                  <svg viewBox="0 0 24 24" stroke="var(--success)"><polyline points="20 6 9 17 4 12"/></svg>
+                  Approve invoice
+                </span>
+                <span class="sc-key">A</span>
+              </div>
+              <div class="sc-row">
+                <span class="sc-label" style="color:var(--danger);">
+                  <svg viewBox="0 0 24 24" stroke="var(--danger)"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  Reject document
+                </span>
+                <span class="sc-key">R</span>
+              </div>
+              <div class="sc-row">
+                <span class="sc-label" style="color:var(--warning);">
+                  <svg viewBox="0 0 24 24" stroke="var(--warning)"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                  Flag for manager
+                </span>
+                <span class="sc-key">F</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Security notice -->
+          <div class="rv-card">
+            <div class="sec-body">
+              <div class="sec-icon">
+                <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <div>
+                <div class="sec-title">Enterprise-Grade Protection</div>
+                <div class="sec-desc">AES-256 encrypted. GDPR &amp; SOC 2 compliant. All access and edits are fully audit-logged.</div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /right col -->
+
+      </div><!-- /review-grid -->
+
+    </main>
+  </div>
+</div>
+
+<script>
+  // ─── Sidebar functions (matching dashboard) ────────────────────────────────
+  const COLLAPSE_KEY = 'sb_collapsed';
+
+  function toggleSidebarCollapse() {
+    const sidebar = document.getElementById('mainSidebar');
+    if (!sidebar) return;
+    const collapsed = sidebar.classList.toggle('collapsed');
+    collapsed
+      ? localStorage.setItem(COLLAPSE_KEY, '1')
+      : localStorage.removeItem(COLLAPSE_KEY);
+  }
+
+  function openMobileSidebar() {
+    const sidebar = document.getElementById('mainSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (sidebar) sidebar.classList.add('mobile-open');
+    if (overlay) overlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeMobileSidebar() {
+    const sidebar = document.getElementById('mainSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (sidebar) sidebar.classList.remove('mobile-open');
+    if (overlay) overlay.classList.remove('show');
+    document.body.style.overflow = '';
+  }
+
+  function toggleUserMenu() {
+    const dropdown = document.getElementById('sbuDropdown');
+    if (dropdown) dropdown.classList.toggle('open');
+  }
+
+  document.addEventListener('click', function(event) {
+    const dropdown = document.getElementById('sbuDropdown');
+    const trigger  = document.getElementById('sbuTrigger');
+    if (dropdown && trigger && !trigger.contains(event.target) && !dropdown.contains(event.target)) {
+      dropdown.classList.remove('open');
+    }
+  });
+
+  window.addEventListener('DOMContentLoaded', function() {
+    const sidebar = document.getElementById('mainSidebar');
+    if (sidebar && localStorage.getItem(COLLAPSE_KEY) && window.innerWidth > 900) {
+      sidebar.classList.add('collapsed');
+    }
+    document.querySelectorAll('.sidebar-nav a').forEach(function(a) {
+      a.addEventListener('click', function() {
+        if (window.innerWidth <= 900) closeMobileSidebar();
+      });
+    });
+  });
+</script>
+
+<script>
+  // PDF preview: strip browser chrome by appending viewer params
+  function _cleanPdfUrl(url) {
+    if (!url) return url;
+    const base = url.split('#')[0];
+    // suppress toolbar, nav panel, scrollbar in Chrome/Edge PDF viewer
+    return base + '#toolbar=0&navpanes=0&scrollbar=1&view=FitH';
+  }
+
+  // Intercept document preview: re-render iframe with clean URL
+  const _previewObserver = new MutationObserver(() => {
+    const frame = document.querySelector('[data-document-preview]');
+    if (!frame) return;
+    const ifrm = frame.querySelector('iframe');
+    if (ifrm && ifrm.src && !ifrm.src.includes('toolbar=0')) {
+      ifrm.src = _cleanPdfUrl(ifrm.src);
+    }
+  });
+  const _previewEl = document.querySelector('[data-document-preview]');
+  if (_previewEl) {
+    _previewObserver.observe(_previewEl, { childList: true });
+  }
+
+  // Zoom helper — scales the content inside the frame
+  let _docZoom = 1;
+  function zoomDoc(factor) {
+    const frame = document.querySelector('[data-document-preview]');
+    if (!frame) return;
+    const inner = frame.querySelector('iframe, img');
+    if (!inner) return;
+    _docZoom = factor === 'reset' ? 1 : Math.min(Math.max(_docZoom * factor, 0.4), 3.5);
+    // For iframes we adjust height to simulate zoom (can't CSS-transform cross-origin iframes)
+    if (inner.tagName === 'IFRAME') {
+      const baseH = 520;
+      frame.style.height = (baseH * _docZoom) + 'px';
+    } else {
+      inner.style.transform = `scale(${_docZoom})`;
+      inner.style.transformOrigin = 'top center';
+      inner.style.transition = 'transform 0.2s ease';
+    }
+  }
+
+  // Intercept main.js flag banner — upgrade plain text to structured card
+  document.addEventListener('DOMContentLoaded', () => {
+    const banner = document.querySelector('[data-flag-message]');
+    if (!banner) return;
+    const observer = new MutationObserver(() => {
+      if (banner.style.display !== 'none' && banner.style.display !== '') {
+        // Extract the message text (main.js sets it via .textContent)
+        const raw = banner.textContent || '';
+        const msg = raw.replace(/^⚠️\s*AI Flag:\s*/i, '').trim();
+        if (msg) {
+          const bodyEl = document.getElementById('flagBodyText');
+          if (bodyEl) bodyEl.textContent = msg;
+          banner.classList.add('show');
+        }
+      }
+    });
+    observer.observe(banner, { attributes: true, attributeFilter: ['style'] });
+  });
+</script>
+
+<script src="{% static 'js/main.js' %}"></script>
+</body>
+</html>

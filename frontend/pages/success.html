@@ -1,0 +1,622 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invoice Approved - InvoiceIQ</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; background: #F0F2F7; }
+
+    .dashboard-container { display: flex; min-height: 100vh; }
+    .page-wrapper { flex: 1; min-width: 0; overflow: hidden; }
+
+    /* ═══════════════════════════════════════════
+       SIDEBAR EXTRAS
+    ═══════════════════════════════════════════ */
+    :root {
+      --sidebar-width: 260px;
+      --sidebar-width-collapsed: 64px;
+    }
+
+    .sidebar { display: flex; flex-direction: column; }
+    .sidebar-spacer { flex: 1; }
+
+    .sidebar-user-block {
+      padding: 12px 16px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .sidebar-user-inner {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 10px;
+      cursor: pointer; transition: background 0.15s; position: relative;
+    }
+    .sidebar-user-inner:hover { background: rgba(255,255,255,0.07); }
+
+    .sbu-avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      border: 1.5px solid rgba(255,255,255,0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .sbu-info { flex: 1; min-width: 0; }
+    .sbu-name {
+      font-size: 13px; font-weight: 600; color: #fff;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sbu-role { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 1px; }
+    .sbu-menu-btn {
+      width: 26px; height: 26px; border-radius: 6px;
+      background: none; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .sbu-menu-btn:hover { background: rgba(255,255,255,0.1); }
+    .sbu-menu-btn svg { stroke: rgba(255,255,255,0.5); }
+
+    .sbu-dropdown {
+      display: none; position: absolute;
+      bottom: calc(100% + 6px); left: 0; right: 0;
+      background: #fff; border-radius: 10px;
+      border: 1px solid var(--border-light);
+      box-shadow: 0 8px 24px rgba(15,27,45,0.16);
+      overflow: hidden; z-index: 200;
+    }
+    .sbu-dropdown.open { display: block; }
+    .sbu-dropdown-header {
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .sbu-dropdown-name { font-size: 13px; font-weight: 700; color: var(--text-dark); }
+    .sbu-dropdown-email { font-size: 11px; color: var(--text-light); margin-top: 1px; }
+    .sbu-dropdown-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 14px; font-size: 13px; color: var(--text-dark);
+      cursor: pointer; transition: background 0.13s;
+      background: none; border: none; width: 100%; text-align: left;
+      font-family: 'DM Sans', sans-serif; text-decoration: none;
+    }
+    .sbu-dropdown-item:hover { background: var(--bg-light); }
+    .sbu-dropdown-item svg { width: 14px; height: 14px; stroke: var(--text-light); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+    .sbu-dropdown-item.danger { color: var(--danger); }
+    .sbu-dropdown-item.danger svg { stroke: var(--danger); }
+    .sbu-dropdown-divider { height: 1px; background: var(--border-light); margin: 2px 0; }
+
+    /* Mobile overlay */
+    .sidebar-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(10,20,40,0.5); z-index: 99;
+      backdrop-filter: blur(2px);
+    }
+    .sidebar-overlay.show { display: block; }
+
+    @media (max-width: 900px) {
+      .page-wrapper { margin-left: 0 !important; }
+      .sidebar {
+        position: fixed !important; left: 0; top: 0; bottom: 0;
+        transform: translateX(-100%); z-index: 100;
+        width: 260px !important;
+        box-shadow: 4px 0 24px rgba(15,27,45,0.18);
+      }
+      .sidebar.mobile-open { transform: translateX(0) !important; }
+      .sidebar.collapsed { width: 260px !important; transform: translateX(-100%); }
+      .collapse-btn { display: none !important; }
+    }
+
+    /* ═══════════════════════════════════════════
+       SUCCESS CONTENT
+    ═══════════════════════════════════════════ */
+    .success-content { padding: 24px 28px 32px; }
+
+    /* ── Hero banner ── */
+    .success-hero {
+      position: relative; overflow: hidden;
+      display: flex; align-items: center; gap: 18px;
+      background: linear-gradient(110deg, #0F1B2D 0%, #1E3A5F 60%, #1a4a7a 100%);
+      border-radius: 16px;
+      padding: 22px 28px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 20px rgba(15,27,45,0.22);
+    }
+    /* subtle grid texture */
+    .success-hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image: radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px);
+      background-size: 22px 22px;
+      pointer-events: none;
+    }
+    /* green glow blob top-right */
+    .success-hero::after {
+      content: '';
+      position: absolute; top: -30px; right: -30px;
+      width: 160px; height: 160px;
+      background: radial-gradient(circle, rgba(16,185,129,0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .checkmark-ring {
+      width: 56px; height: 56px; flex-shrink: 0; position: relative; z-index: 1;
+      border-radius: 50%;
+      background: rgba(16,185,129,0.15);
+      border: 2px solid rgba(16,185,129,0.45);
+      display: flex; align-items: center; justify-content: center;
+      animation: ringPulse 2.4s ease-in-out infinite;
+      box-shadow: 0 0 0 0 rgba(16,185,129,0.3);
+    }
+    @keyframes ringPulse {
+      0%  { box-shadow: 0 0 0 0    rgba(16,185,129,0.35); }
+      60% { box-shadow: 0 0 0 12px rgba(16,185,129,0); }
+      100%{ box-shadow: 0 0 0 0    rgba(16,185,129,0); }
+    }
+    .checkmark-svg { width: 28px; height: 28px; }
+    .checkmark-svg path {
+      stroke-dasharray: 60; stroke-dashoffset: 60;
+      animation: drawCheck 0.6s cubic-bezier(0.4,0,0.2,1) 0.15s forwards;
+    }
+    @keyframes drawCheck { to { stroke-dashoffset: 0; } }
+
+    .hero-text { flex: 1; min-width: 0; position: relative; z-index: 1; }
+    .success-title {
+      font-size: 19px; font-weight: 700; color: #fff;
+      margin-bottom: 4px; letter-spacing: -0.2px;
+    }
+    .success-subtitle { font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.5; }
+    .success-subtitle span { color: rgba(255,255,255,0.85); font-weight: 600; }
+
+    .approved-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 13px; border-radius: 99px;
+      background: rgba(16,185,129,0.18);
+      border: 1px solid rgba(16,185,129,0.35);
+      color: #6EE7B7;
+      font-size: 11px; font-weight: 700; flex-shrink: 0;
+      position: relative; z-index: 1;
+      letter-spacing: 0.3px;
+    }
+    .approved-pill svg { width: 10px; height: 10px; stroke: #6EE7B7; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* ── Two-column grid ── */
+    .success-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 16px; margin-bottom: 16px;
+    }
+
+    /* ── Shared card base ── */
+    .sc-card {
+      background: #fff; border-radius: 14px;
+      border: 1px solid var(--border-light);
+      box-shadow: 0 1px 6px rgba(15,27,45,0.06);
+      overflow: hidden; position: relative;
+    }
+    /* coloured top accent */
+    .sc-card.blue::before  { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: var(--primary); border-radius: 14px 14px 0 0; }
+    .sc-card.green::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: #059669; border-radius: 14px 14px 0 0; }
+
+    .sc-card-head {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px 18px;
+      background: #FAFBFC;
+      border-bottom: 1px solid var(--border-light);
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--text-light);
+    }
+    .sc-card-head svg { width: 13px; height: 13px; stroke: var(--text-light); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .sc-card-body { padding: 18px; }
+
+    /* ── Summary card ── */
+    .summary-vendor-name {
+      font-size: 16px; font-weight: 700; color: var(--text-dark); margin-bottom: 3px;
+    }
+    .summary-inv-num {
+      font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text-light);
+      margin-bottom: 16px; letter-spacing: 0.3px;
+    }
+    .summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+    .summary-field {
+      padding: 10px 12px;
+      background: #FAFBFC; border-radius: 9px;
+      border: 1px solid var(--border-light);
+      margin: 3px;
+    }
+    .summary-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.4px; color: var(--text-light); margin-bottom: 4px;
+    }
+    .summary-value { font-size: 13px; font-weight: 600; color: var(--text-dark); }
+    .summary-value.amount {
+      font-family: 'DM Mono', monospace; font-size: 15px;
+      font-weight: 700; color: var(--primary);
+    }
+    .summary-value.green { color: #059669; }
+
+    /* ── Export card ── */
+    .export-btn {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 14px;
+      border: 1.5px solid var(--border-light); border-radius: 10px;
+      background: #fff; cursor: pointer; transition: all 0.18s;
+      font-family: 'DM Sans', sans-serif; text-decoration: none;
+      width: 100%; margin-bottom: 9px; position: relative;
+    }
+    .export-btn:last-of-type { margin-bottom: 0; }
+    .export-btn:hover { border-color: var(--primary); background: #F5F8FF; transform: translateX(2px); }
+    .export-btn-icon {
+      width: 36px; height: 36px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .export-btn-icon.xlsx { background: linear-gradient(135deg, #D1FAE5, #A7F3D0); }
+    .export-btn-icon.pdf  { background: linear-gradient(135deg, #FEE2E2, #FECACA); }
+    .export-btn-icon svg { width: 16px; height: 16px; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .export-btn-icon.xlsx svg { stroke: #059669; }
+    .export-btn-icon.pdf  svg { stroke: #DC2626; }
+    .export-btn-info { flex: 1; }
+    .export-btn-label { font-size: 13px; font-weight: 600; color: var(--text-dark); line-height: 1.2; }
+    .export-btn-sub { font-size: 11px; color: var(--text-light); margin-top: 1px; }
+    .export-btn-arrow {
+      width: 26px; height: 26px; border-radius: 6px;
+      background: var(--bg-light); border: 1px solid var(--border-light);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      transition: all 0.18s;
+    }
+    .export-btn:hover .export-btn-arrow { background: var(--primary); border-color: var(--primary); }
+    .export-btn-arrow svg { width: 12px; height: 12px; stroke: var(--text-light); fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; transition: stroke 0.18s; }
+    .export-btn:hover .export-btn-arrow svg { stroke: #fff; }
+
+    /* ── Bottom strip ── */
+    .bottom-strip {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 16px; align-items: start;
+    }
+
+    .btn-accounting {
+      width: 100%;
+      display: flex; align-items: center; justify-content: center; gap: 9px;
+      padding: 13px 18px;
+      background: linear-gradient(135deg, #1E3A5F 0%, #2563EB 100%);
+      color: #fff; border: none; border-radius: 11px;
+      font-size: 13px; font-weight: 700; font-family: 'DM Sans', sans-serif;
+      cursor: pointer; transition: all 0.2s;
+      box-shadow: 0 3px 12px rgba(37,99,235,0.35);
+      letter-spacing: 0.1px;
+    }
+    .btn-accounting:hover {
+      background: linear-gradient(135deg, #152B4F 0%, #1d4ed8 100%);
+      box-shadow: 0 6px 20px rgba(37,99,235,0.45);
+      transform: translateY(-1px);
+    }
+    .btn-accounting svg { width: 15px; height: 15px; stroke: #fff; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+    .action-strip { display: flex; flex-direction: column; gap: 9px; }
+    .btn-process-another {
+      width: 100%;
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      padding: 13px;
+      background: #fff; border: 1.5px solid var(--border-light); border-radius: 11px;
+      font-size: 13px; font-weight: 700; color: var(--text-dark);
+      font-family: 'DM Sans', sans-serif; cursor: pointer; transition: all 0.18s;
+      box-shadow: 0 1px 4px rgba(15,27,45,0.06);
+    }
+    .btn-process-another:hover { border-color: var(--primary); color: var(--primary); background: #F5F8FF; transform: translateY(-1px); }
+    .btn-process-another svg { width: 13px; height: 13px; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .secondary-links { display: flex; align-items: center; justify-content: center; gap: 16px; }
+    .sec-link {
+      font-size: 12px; font-weight: 600; color: var(--text-light);
+      text-decoration: none; display: flex; align-items: center; gap: 4px;
+      transition: color 0.15s, gap 0.15s;
+    }
+    .sec-link:hover { color: var(--primary); gap: 6px; }
+    .sec-link svg { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .sec-link-divider { width: 1px; height: 12px; background: var(--border-light); }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .success-grid { grid-template-columns: 1fr; }
+      .bottom-strip { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .success-content { padding: 16px 16px 32px; }
+      .success-hero { flex-wrap: wrap; padding: 18px 20px; }
+      .summary-grid { grid-template-columns: 1fr 1fr; }
+      .secondary-links { flex-direction: column; gap: 8px; }
+      .sec-link-divider { display: none; }
+    }
+  </style>
+
+  <script>
+    const COLLAPSE_KEY = 'sb_collapsed';
+
+    function toggleSidebarCollapse() {
+      const sidebar = document.getElementById('mainSidebar');
+      if (!sidebar) return;
+      const collapsed = sidebar.classList.toggle('collapsed');
+      collapsed ? localStorage.setItem(COLLAPSE_KEY, '1') : localStorage.removeItem(COLLAPSE_KEY);
+    }
+    function openMobileSidebar() {
+      const sidebar = document.getElementById('mainSidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      if (sidebar) sidebar.classList.add('mobile-open');
+      if (overlay) overlay.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeMobileSidebar() {
+      const sidebar = document.getElementById('mainSidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      if (sidebar) sidebar.classList.remove('mobile-open');
+      if (overlay) overlay.classList.remove('show');
+      document.body.style.overflow = '';
+    }
+    function toggleUserMenu() {
+      const dropdown = document.getElementById('sbuDropdown');
+      if (dropdown) dropdown.classList.toggle('open');
+    }
+    document.addEventListener('click', function(e) {
+      const dropdown = document.getElementById('sbuDropdown');
+      const trigger  = document.getElementById('sbuTrigger');
+      if (dropdown && trigger && !trigger.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.classList.remove('open');
+      }
+    });
+    window.addEventListener('DOMContentLoaded', function() {
+      const sidebar = document.getElementById('mainSidebar');
+      if (sidebar && localStorage.getItem(COLLAPSE_KEY) && window.innerWidth > 900) {
+        sidebar.classList.add('collapsed');
+      }
+      document.querySelectorAll('.sidebar-nav a').forEach(function(a) {
+        a.addEventListener('click', function() {
+          if (window.innerWidth <= 900) closeMobileSidebar();
+        });
+      });
+    });
+  </script>
+</head>
+<body>
+<div class="dashboard-container">
+
+  <!-- Mobile overlay -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
+
+  <!-- ═══ SIDEBAR ══════════════════════════════════════════════════════════ -->
+  <aside class="sidebar" id="mainSidebar">
+    <button class="collapse-btn" id="collapseBtn" onclick="toggleSidebarCollapse()" title="Collapse sidebar" aria-label="Collapse sidebar">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+
+    <div class="sidebar-scroll">
+      <div class="sidebar-logo">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+          <polyline points="13 2 13 9 20 9"/>
+        </svg>
+        <span>InvoiceIQ</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="/dashboard/">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <span>Dashboard</span>
+        </a>
+        <a href="/upload/" class="active">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span>Upload Invoice</span>
+        </a>
+        <a href="/history/">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/><polyline points="12 7 12 12 16 14"/></svg>
+          <span>Document History</span>
+        </a>
+        <a href="/reports/">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          <span>Reports</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-section-label">System</div>
+
+      <nav class="sidebar-nav">
+        <a href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          <span>Settings</span>
+        </a>
+        <a href="#">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>Audit Logs</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-spacer"></div>
+
+      <!-- User block -->
+      <div class="sidebar-user-block">
+        <div class="sidebar-user-inner" id="sbuTrigger" onclick="toggleUserMenu()">
+          <div class="sbu-avatar sidebar-user-avatar" data-user-initials>SK</div>
+          <div class="sbu-info">
+            <div class="sbu-name sidebar-user-name" data-user-name>Sarah Jenkins</div>
+            <div class="sbu-role sidebar-user-role" data-user-role>Enterprise Admin</div>
+          </div>
+          <button class="sbu-menu-btn" aria-label="User menu">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+          </button>
+          <div class="sbu-dropdown" id="sbuDropdown">
+            <div class="sbu-dropdown-header">
+              <div class="sbu-dropdown-name" data-user-name>Sarah Jenkins</div>
+              <div class="sbu-dropdown-email" data-user-email>sarah@company.com</div>
+            </div>
+            <a href="#" class="sbu-dropdown-item">
+              <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              My Profile
+            </a>
+            <a href="#" class="sbu-dropdown-item">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+              Settings
+            </a>
+            <div class="sbu-dropdown-divider"></div>
+            <button class="sbu-dropdown-item danger" onclick="handleLogout(event)">
+              <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              Log Out
+            </button>
+          </div>
+        </div>
+      </div>
+    </div><!-- end .sidebar-scroll -->
+  </aside>
+
+  <!-- ═══ PAGE WRAPPER ═════════════════════════════════════════════════════ -->
+  <div class="page-wrapper">
+
+    <!-- Top Nav -->
+    <nav class="top-nav">
+      <div class="nav-left">
+        <button class="hamburger" onclick="openMobileSidebar()"><span></span><span></span><span></span></button>
+      </div>
+      <div class="nav-right">
+        <button class="nav-icon" data-notification-bell aria-label="Notifications">
+          <svg viewBox="0 0 24 24">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <div class="notification-badge"></div>
+        </button>
+        <div class="user-avatar">JD</div>
+      </div>
+      <div class="notification-dropdown">
+        <div class="notification-item">
+          <div class="notification-title">Invoice Approved</div>
+          <div class="notification-time">Just now</div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ═══ MAIN CONTENT ════════════════════════════════════════════════════ -->
+    <main class="main-content success-content">
+
+      <!-- Breadcrumb -->
+      <div class="breadcrumb" style="margin-bottom:16px;">
+        <a href="/dashboard/">Dashboard</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-current">Invoice Approved</span>
+      </div>
+
+      <!-- Hero banner -->
+      <div class="success-hero">
+        <div class="checkmark-ring">
+          <svg class="checkmark-svg" viewBox="0 0 24 24" fill="none">
+            <path d="M4.5 12.5L9.5 17.5L19.5 7.5" stroke="#6EE7B7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="hero-text">
+          <h1 class="success-title">Invoice Approved Successfully</h1>
+          <p class="success-subtitle"><span data-success-invoice-number></span> has been verified, categorised, and is ready for export.</p>
+        </div>
+        <span class="approved-pill">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+          Approved
+        </span>
+      </div>
+
+      <!-- Two-column grid -->
+      <div class="success-grid">
+
+        <!-- Summary card -->
+        <div class="sc-card blue">
+          <div class="sc-card-head">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Invoice Summary
+          </div>
+          <div class="sc-card-body">
+            <div class="summary-vendor-name" data-success-vendor>—</div>
+            <div class="summary-inv-num" data-success-invoice-number>—</div>
+            <div class="summary-grid">
+              <div class="summary-field">
+                <div class="summary-label">Total Amount</div>
+                <div class="summary-value amount" data-success-total>—</div>
+              </div>
+              <div class="summary-field">
+                <div class="summary-label">Processed</div>
+                <div class="summary-value">Today</div>
+              </div>
+              <div class="summary-field">
+                <div class="summary-label">Status</div>
+                <div class="summary-value green">Approved</div>
+              </div>
+              <div class="summary-field">
+                <div class="summary-label">Confidence</div>
+                <div class="summary-value green">High</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Export card -->
+        <div class="sc-card green">
+          <div class="sc-card-head">
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export &amp; Integrate
+          </div>
+          <div class="sc-card-body">
+            <button class="export-btn" onclick="handleExport(getInvoiceId(), 'excel', this)">
+              <div class="export-btn-icon xlsx">
+                <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
+              </div>
+              <div class="export-btn-info">
+                <div class="export-btn-label">Download Excel</div>
+                <div class="export-btn-sub">.xlsx format</div>
+              </div>
+              <div class="export-btn-arrow">
+                <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              </div>
+            </button>
+            <button class="export-btn" onclick="handleExport(getInvoiceId(), 'pdf', this)">
+              <div class="export-btn-icon pdf">
+                <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="9" y2="17"/><line x1="12" y1="13" x2="12" y2="17"/><line x1="15" y1="13" x2="15" y2="17"/></svg>
+              </div>
+              <div class="export-btn-info">
+                <div class="export-btn-label">Download PDF</div>
+                <div class="export-btn-sub">.pdf format</div>
+              </div>
+              <div class="export-btn-arrow">
+                <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              </div>
+            </button>
+          </div>
+        </div>
+
+      </div><!-- /success-grid -->
+
+      <!-- Bottom strip -->
+      <div class="bottom-strip">
+        <button class="btn-accounting" onclick="handleSendToAccounting(getInvoiceId(), this)">
+          <svg viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+          Send to Accounting System
+        </button>
+
+        <div class="action-strip">
+          <button class="btn-process-another" onclick="handleProcessAnother(event)">
+            <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Process Another Invoice
+          </button>
+          <div class="secondary-links">
+            <a href="/history/" class="sec-link">
+              View History
+              <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </a>
+            <div class="sec-link-divider"></div>
+            <a href="/dashboard/" class="sec-link">
+              <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+              Dashboard
+            </a>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div><!-- end .page-wrapper -->
+</div>
+
+<script src="{% static 'js/main.js' %}"></script>
+</body>
+</html>

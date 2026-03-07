@@ -1,0 +1,1030 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document History - InvoiceIQ</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+  <style>
+    .dashboard-container { display: flex; min-height: 100vh; width: 100%; overflow-x: hidden; }
+    .sidebar-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(10,20,40,0.5); z-index: 99; backdrop-filter: blur(2px);
+    }
+    .sidebar-overlay.show { display: block; }
+    .page-wrapper {
+      margin-left: 260px; flex: 1; min-width: 0;
+      transition: margin-left 0.25s cubic-bezier(0.4,0,0.2,1);
+      min-height: 100vh; display: flex; flex-direction: column;
+      position: relative; z-index: 1; overflow-x: hidden;
+    }
+    .sidebar.collapsed ~ .page-wrapper { margin-left: 64px; }
+    .sidebar.collapsed ~ .page-wrapper .top-nav { left: 64px; }
+    .main-content { padding: 28px 28px 56px; flex: 1; margin-top: 64px; }
+
+    /* Page header */
+    .page-header-section {
+      display: flex; justify-content: space-between;
+      align-items: flex-start; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;
+    }
+    .page-title { font-size: 24px; font-weight: 700; color: var(--text-dark); margin-bottom: 4px; }
+    .page-subtitle { font-size: 14px; color: var(--text-light); margin-bottom: 4px; }
+    .page-timestamp { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-light); }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #10B981; flex-shrink: 0; animation: pulse-dot 2s infinite; }
+    .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .selected-badge {
+      display: none; align-items: center; gap: 6px;
+      background: #DBEAFE; color: #1D4ED8;
+      padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;
+    }
+    .selected-badge.visible { display: inline-flex; }
+    .hdr-btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.2s; white-space: nowrap;
+    }
+    .hdr-btn svg { width: 14px; height: 14px; flex-shrink: 0; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .hdr-btn-outline { border: 1px solid var(--border-light); background: var(--white); color: var(--text-dark); }
+    .hdr-btn-outline svg { stroke: var(--text-dark); }
+    .hdr-btn-outline:hover { background: var(--bg-light); border-color: #c8d0dd; }
+    .hdr-btn-solid { border: none; background: var(--primary); color: #fff; box-shadow: 0 2px 8px rgba(30,58,95,0.2); }
+    .hdr-btn-solid svg { stroke: #fff; }
+    .hdr-btn-solid:hover { background: #152847; transform: translateY(-1px); }
+
+    /* ── Filter bar ─────────────────────────────────────────────── */
+    .filter-row {
+      display: flex; gap: 10px; margin-bottom: 20px;
+      align-items: center; flex-wrap: nowrap;
+    }
+    /* Search wrapper */
+    .search-wrap { flex: 1; min-width: 0; position: relative; }
+    .search-wrap svg {
+      position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+      width: 15px; height: 15px; stroke: #9CA3AF; fill: none;
+      stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+      pointer-events: none;
+    }
+    .search-input {
+      width: 100%; height: 42px;
+      padding: 0 14px 0 40px;
+      border: 1.5px solid #E5E7EB; border-radius: 8px;
+      font-size: 13px; font-family: 'Inter', sans-serif;
+      color: var(--text-dark); background: var(--white);
+      transition: border-color 0.15s, box-shadow 0.15s;
+      box-sizing: border-box;
+    }
+    /* Icon via bg for bare input (main.js renders without wrapper) */
+    .filter-row > .search-input {
+      flex: 1; min-width: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: 13px center;
+    }
+    .search-input:focus { outline: none; border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+    .search-input::placeholder { color: #9CA3AF; font-size: 13px; }
+
+    /* Hide ✓ High confidence column (6th td) injected by main.js */
+    [data-history-table] tr td:nth-child(6):not(.col-actions) { display: none; }
+    th.col-hidden-conf { display: none; width: 0; padding: 0; }
+
+    /* Filter selects — grouped as one pill */
+    .filter-selects-group {
+      display: flex; flex-shrink: 0;
+      border: 1.5px solid #E5E7EB; border-radius: 8px; overflow: hidden;
+    }
+    .filter-select-wrap { position: relative; display: flex; align-items: center; }
+    .filter-select-wrap + .filter-select-wrap { border-left: 1px solid #E5E7EB; }
+    .filter-select-wrap svg { display: none; }
+    .filter-select {
+      appearance: none; -webkit-appearance: none;
+      height: 42px; padding: 0 34px 0 14px;
+      border: none; background: var(--white);
+      font-size: 13px; font-family: 'Inter', sans-serif;
+      color: var(--text-dark); cursor: pointer;
+      white-space: nowrap;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 11px center;
+    }
+    .filter-select:focus { outline: none; }
+    .filter-select.active-filter { background-color: #EFF6FF; color: #1D4ED8; font-weight: 600; }
+    /* Bare selects rendered by main.js without wrapper divs */
+    .filter-row > .filter-select {
+      flex-shrink: 0; height: 42px;
+      border: 1.5px solid #E5E7EB; border-radius: 8px;
+      padding: 0 34px 0 14px;
+    }
+
+
+    /* Table */
+    .table-section { background: var(--white); border-radius: 14px; border: 1px solid var(--border-light); box-shadow: 0 1px 4px rgba(15,27,45,0.07); overflow: hidden; }
+    .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+    thead { background: #FAFBFC; }
+    thead th { padding: 11px 16px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-light); letter-spacing: 0.5px; border-bottom: 2px solid var(--border-light); white-space: nowrap; user-select: none; }
+
+    thead th.col-actions { width: 120px; text-align: center; }
+    tbody td { padding: 13px 16px; font-size: 13px; border-bottom: 1px solid #F3F4F6; color: var(--text-dark); vertical-align: middle; }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:nth-child(even) td { background: #FAFBFC; }
+    tbody tr:hover td { background: #F0F5FF; transition: background 0.12s; }
+
+
+    /* Vendor */
+    .vendor-cell { display: flex; align-items: center; gap: 10px; }
+    .vendor-mono { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #1E3A5F, #2563EB); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; letter-spacing: 0.5px; }
+    .vendor-name { font-weight: 600; color: var(--text-dark); }
+    .invoice-no { font-family: 'Courier New', monospace; font-size: 12px; color: var(--text-light); }
+    .amount-cell { font-weight: 700; color: var(--text-dark); font-variant-numeric: tabular-nums; }
+
+    /* Status badges */
+    .status-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+    .status-badge svg { width: 11px; height: 11px; flex-shrink: 0; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .status-processed { background: #D1FAE5; color: #065F46; }
+    .status-processed svg { stroke: #065F46; }
+    .status-pending { background: #FEF3C7; color: #92400E; }
+    .status-pending svg { stroke: #92400E; }
+    .status-flagged { background: #FEE2E2; color: #991B1B; }
+    .status-flagged svg { stroke: #991B1B; }
+    .status-archived { background: #F3F4F6; color: #6B7280; }
+    .status-archived svg { stroke: #6B7280; }
+
+    /* Action group */
+    td.col-actions { text-align: center; }
+    .action-group { display: inline-flex; align-items: center; gap: 3px; background: var(--bg-light); border: 1px solid var(--border-light); border-radius: 8px; padding: 3px; }
+    .act-btn { width: 34px; height: 34px; border-radius: 6px; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-light); transition: background 0.15s, color 0.15s; position: relative; flex-shrink: 0; }
+    .act-btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+    .act-btn:hover { background: var(--white); box-shadow: 0 1px 3px rgba(15,27,45,0.1); }
+    .act-btn.act-view:hover { color: #2563EB; }
+    .act-btn.act-export:hover { color: #059669; }
+    .act-btn.act-more:hover { color: var(--text-dark); }
+    .act-btn::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: #1E293B; color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; padding: 4px 8px; border-radius: 5px; pointer-events: none; opacity: 0; transition: opacity 0.15s; z-index: 50; }
+    .act-btn:hover::after { opacity: 1; }
+    .act-divider { width: 1px; height: 20px; background: var(--border-light); flex-shrink: 0; }
+    .act-export-wrap { position: relative; }
+    .export-dropdown-menu { display: none; position: absolute; right: 0; top: calc(100% + 6px); background: var(--white); border: 1px solid var(--border-light); border-radius: 10px; box-shadow: 0 8px 24px rgba(15,27,45,0.12); z-index: 200; min-width: 160px; overflow: hidden; }
+    .export-dropdown-menu.open { display: block; }
+    .export-dropdown-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; font-size: 13px; font-weight: 500; color: var(--text-dark); cursor: pointer; border: none; background: none; width: 100%; text-align: left; transition: background 0.12s; font-family: 'Inter', sans-serif; }
+    .export-dropdown-item svg { width: 15px; height: 15px; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; stroke: var(--text-light); flex-shrink: 0; }
+    .export-dropdown-item:hover { background: var(--bg-light); }
+    .export-dropdown-item:hover svg { stroke: var(--primary); }
+
+    /* Expanded row */
+    .expanded-row { display: none; }
+    .expanded-row.show { display: table-row; }
+    .expanded-content { padding: 14px 18px; background: #FFFAEF; border-left: 4px solid #F59E0B; display: flex; align-items: flex-start; gap: 12px; }
+    .expanded-icon { width: 32px; height: 32px; border-radius: 8px; background: #FEF3C7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .expanded-icon svg { width: 15px; height: 15px; stroke: #D97706; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .expanded-text { font-size: 13px; color: #92400E; line-height: 1.5; }
+    .expanded-text strong { color: #78350F; }
+    .expanded-text a { color: var(--primary); font-weight: 700; text-decoration: none; }
+    .expanded-text a:hover { text-decoration: underline; }
+
+    /* Empty state */
+    .empty-state-cell { text-align: center; padding: 56px 20px !important; }
+    .empty-icon-wrap { width: 56px; height: 56px; border-radius: 14px; background: var(--bg-light); display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; }
+    .empty-icon-wrap svg { width: 24px; height: 24px; stroke: #CBD5E0; fill: none; stroke-width: 1.5; }
+    .empty-title { font-weight: 700; font-size: 15px; color: var(--text-dark); margin-bottom: 4px; }
+    .empty-sub { font-size: 13px; color: var(--text-light); }
+
+    /* Pagination */
+    .pagination { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-top: 1px solid var(--border-light); background: #FAFBFC; flex-wrap: wrap; gap: 10px; }
+    .pagination-left { display: flex; align-items: center; gap: 10px; }
+    .pagination-info { font-size: 13px; color: var(--text-light); }
+    .per-page-wrap { position: relative; }
+    .per-page-wrap svg { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 12px; height: 12px; stroke: var(--text-light); fill: none; stroke-width: 2.5; stroke-linecap: round; pointer-events: none; }
+    .per-page-select { appearance: none; -webkit-appearance: none; padding: 6px 26px 6px 10px; border: 1px solid var(--border-light); border-radius: 6px; font-size: 12px; font-family: 'Inter', sans-serif; background: var(--white); color: var(--text-dark); cursor: pointer; }
+    .pagination-controls { display: flex; gap: 4px; align-items: center; }
+    .pagination-btn { height: 34px; min-width: 34px; padding: 0 10px; border: 1px solid var(--border-light); border-radius: 7px; background: var(--white); cursor: pointer; font-size: 13px; font-weight: 500; font-family: 'Inter', sans-serif; color: var(--text-dark); transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 5px; }
+    .pagination-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .pagination-btn:hover:not(:disabled) { background: var(--bg-light); border-color: #c8d0dd; }
+    .pagination-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 700; }
+    .pagination-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .pg-dots { color: var(--text-light); padding: 0 4px; font-size: 13px; }
+
+    /* Modal */
+    .modal { display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(10,20,40,0.5); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 20px; }
+    .modal.active { display: flex; }
+    .modal-content { background: var(--white); border-radius: 16px; width: 100%; max-width: 580px; box-shadow: 0 24px 64px rgba(15,27,45,0.2); max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column; }
+    .modal-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 24px 24px 0; margin-bottom: 20px; }
+    .modal-title { font-size: 18px; font-weight: 700; color: var(--text-dark); margin-bottom: 3px; }
+    .modal-subtitle { font-size: 13px; color: var(--text-light); }
+    .modal-close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border-light); background: var(--white); cursor: pointer; font-size: 18px; color: var(--text-light); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s; line-height: 1; }
+    .modal-close:hover { background: var(--bg-light); color: var(--text-dark); }
+    .modal-body { padding: 0 24px; flex: 1; }
+    .modal-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; padding: 16px; background: var(--bg-light); border-radius: 10px; }
+    .modal-field-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-light); margin-bottom: 4px; }
+    .modal-field-value { font-weight: 600; font-size: 14px; color: var(--text-dark); }
+    .modal-field-value.amount { font-size: 18px; color: var(--primary); }
+    .modal-section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-light); margin-bottom: 10px; }
+    .modal-line-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 20px; }
+    .modal-line-table th { padding: 8px 10px; text-align: left; background: var(--bg-light); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-light); border-bottom: 1px solid var(--border-light); }
+    .modal-line-table td { padding: 10px; border-bottom: 1px solid #F3F4F6; }
+    .modal-line-table tbody tr:last-child td { border-bottom: none; font-weight: 700; background: #FAFBFC; }
+    .modal-footer { display: flex; gap: 10px; justify-content: flex-end; padding: 16px 24px; border-top: 1px solid var(--border-light); margin-top: 4px; }
+    .modal-btn { display: inline-flex; align-items: center; gap: 7px; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; text-decoration: none; }
+    .modal-btn-ghost { border: 1px solid var(--border-light); background: var(--white); color: var(--text-dark); }
+    .modal-btn-ghost:hover { background: var(--bg-light); }
+    .modal-btn-primary { border: none; background: var(--primary); color: #fff; }
+    .modal-btn-primary:hover { background: #152847; }
+
+    /* ── Override dynamically injected action styles from main.js ── */
+    .action-dropdown {
+      display: inline-flex; align-items: center; gap: 3px;
+      background: var(--bg-light); border: 1px solid var(--border-light);
+      border-radius: 8px; padding: 3px;
+    }
+    .action-btn-view {
+      height: 34px; padding: 0 12px;
+      border-radius: 6px; border: none; background: transparent;
+      cursor: pointer; font-size: 12px; font-weight: 600;
+      color: #2563EB; font-family: 'Inter', sans-serif;
+      transition: background 0.15s; white-space: nowrap;
+      display: flex; align-items: center;
+    }
+    .action-btn-view:hover { background: var(--white); box-shadow: 0 1px 3px rgba(15,27,45,0.1); }
+    .export-dropdown { position: relative; display: flex; align-items: center; }
+    .export-dropdown::before {
+      content: ''; width: 1px; height: 20px;
+      background: var(--border-light); flex-shrink: 0; margin-right: 3px;
+    }
+    .export-dropdown-toggle {
+      height: 34px; padding: 0 10px;
+      border-radius: 6px; border: none;
+      background: transparent; cursor: pointer;
+      font-size: 12px; font-weight: 600;
+      color: #059669; font-family: 'Inter', sans-serif;
+      transition: background 0.15s; white-space: nowrap;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .export-dropdown-toggle:hover { background: var(--white); box-shadow: 0 1px 3px rgba(15,27,45,0.1); }
+    /* Keep existing export dropdown menu styles intact */
+    .action-cell { text-align: center; vertical-align: middle; }
+
+    /* Mobile cards */
+    .mobile-cards { display: none; padding: 12px; }
+    .inv-card { background: var(--white); border: 1px solid var(--border-light); border-radius: 12px; padding: 16px; margin-bottom: 10px; }
+    .inv-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+    .inv-card-vendor { display: flex; align-items: center; gap: 10px; }
+    .inv-card-name { font-weight: 700; font-size: 14px; color: var(--text-dark); }
+    .inv-card-no { font-size: 12px; color: var(--text-light); font-family: 'Courier New', monospace; }
+    .inv-card-row { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid #F3F4F6; }
+    .inv-card-amount { font-weight: 700; font-size: 15px; color: var(--text-dark); }
+    .inv-card-date { font-size: 12px; color: var(--text-light); margin-top: 2px; }
+    .inv-card-actions { display: flex; gap: 8px; }
+    .inv-card-btn { flex: 1; padding: 9px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: 'Inter', sans-serif; transition: all 0.15s; white-space: nowrap; }
+    .inv-card-btn svg { width: 14px; height: 14px; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .inv-card-btn-view { border: 1px solid var(--border-light); background: var(--white); color: var(--primary); }
+    .inv-card-btn-view svg { stroke: var(--primary); }
+    .inv-card-btn-view:hover { background: #EFF6FF; }
+    .inv-card-btn-export { border: none; background: var(--primary); color: #fff; }
+    .inv-card-btn-export svg { stroke: #fff; }
+    .inv-card-btn-export:hover { background: #152847; }
+    .inv-flag-bar { background: #FFFAEF; border-left: 3px solid #F59E0B; padding: 9px 12px; border-radius: 6px; font-size: 12px; color: #92400E; margin-bottom: 10px; }
+    .inv-flag-bar a { color: var(--primary); font-weight: 700; text-decoration: none; }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .page-wrapper { margin-left: 0 !important; }
+      .top-nav { left: 0 !important; }
+      .hamburger { display: flex !important; }
+      .sidebar { position: fixed !important; left: 0; top: 0; bottom: 0; transform: translateX(-100%); z-index: 100; width: 260px !important; box-shadow: 4px 0 24px rgba(15,27,45,0.18); transition: transform 0.28s cubic-bezier(0.4,0,0.2,1) !important; }
+      .sidebar.mobile-open { transform: translateX(0) !important; }
+      .sidebar.collapsed { width: 260px !important; transform: translateX(-100%); }
+      .collapse-btn { display: none !important; }
+      .main-content { padding: 20px 16px 40px; }
+    }
+    @media (max-width: 640px) {
+      .table-wrapper { display: none; }
+      .mobile-cards { display: block; }
+      .pg-num, .pg-dots { display: none; }
+      .page-header-section { flex-direction: column; }
+      .header-actions { width: 100%; justify-content: flex-end; }
+    }
+    @media (max-width: 400px) {
+      .filter-row { flex-direction: column; }
+      .search-wrap { min-width: 100%; }
+      .filter-select { width: 100%; }
+    }
+
+    /* ── Sidebar user block (sbu) ───────────────────────────────── */
+    .sidebar-user-block {
+      padding: 12px 0 4px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      flex-shrink: 0;
+    }
+    .sidebar-user-inner {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 12px; border-radius: 10px;
+      cursor: pointer; position: relative;
+      transition: background 0.15s;
+    }
+    .sidebar-user-inner:hover { background: rgba(255,255,255,0.07); }
+    .sbu-avatar {
+      width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
+      background: linear-gradient(135deg, #2563EB, #1E3A5F);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: #fff; letter-spacing: 0.5px;
+    }
+    .sbu-info { flex: 1; min-width: 0; }
+    .sbu-name {
+      font-size: 13px; font-weight: 600; color: #fff;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sbu-role {
+      font-size: 11px; color: rgba(255,255,255,0.55);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sbu-menu-btn {
+      width: 24px; height: 24px; border-radius: 5px; border: none;
+      background: transparent; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(255,255,255,0.4); transition: background 0.15s, color 0.15s;
+      padding: 0;
+    }
+    .sbu-menu-btn svg { stroke: currentColor; fill: none; }
+    .sbu-menu-btn:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.9); }
+
+    /* Dropdown opens UPWARD */
+    .sbu-dropdown {
+      display: none; position: absolute;
+      bottom: calc(100% + 8px); left: 8px; right: 8px;
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 -4px 24px rgba(15,27,45,0.18), 0 2px 8px rgba(15,27,45,0.1);
+      border: 1px solid #E5E7EB;
+      z-index: 500; overflow: hidden;
+    }
+    .sbu-dropdown.open { display: block; }
+    .sbu-dropdown-header {
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid #F3F4F6;
+      background: #FAFBFC;
+    }
+    .sbu-dropdown-name { font-size: 13px; font-weight: 700; color: #1E293B; }
+    .sbu-dropdown-email { font-size: 11px; color: #6B7280; margin-top: 2px; }
+    .sbu-dropdown-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; font-size: 13px; font-weight: 500;
+      color: #374151; text-decoration: none; cursor: pointer;
+      border: none; background: none; width: 100%; text-align: left;
+      font-family: 'Inter', sans-serif; transition: background 0.12s;
+    }
+    .sbu-dropdown-item svg {
+      width: 15px; height: 15px; fill: none; stroke: #9CA3AF;
+      stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+    .sbu-dropdown-item:hover { background: #F9FAFB; }
+    .sbu-dropdown-item:hover svg { stroke: #2563EB; }
+    .sbu-dropdown-item.danger { color: #DC2626; }
+    .sbu-dropdown-item.danger svg { stroke: #DC2626; }
+    .sbu-dropdown-item.danger:hover { background: #FEF2F2; }
+    .sbu-dropdown-divider { height: 1px; background: #F3F4F6; margin: 4px 0; }
+
+    /* Collapsed sidebar: hide text, keep avatar centered */
+    .sidebar.collapsed .sbu-info,
+    .sidebar.collapsed .sbu-menu-btn,
+    .sidebar.collapsed .sbu-name,
+    .sidebar.collapsed .sbu-role { display: none; }
+    .sidebar.collapsed .sidebar-user-inner { justify-content: center; padding: 8px; }
+    .sidebar-spacer { flex: 1; }
+  </style>
+
+  <script>
+    const COLLAPSE_KEY = 'sb_collapsed';
+    function toggleSidebarCollapse() {
+      const s = document.getElementById('mainSidebar');
+      if (!s) return;
+      const c = s.classList.toggle('collapsed');
+      c ? localStorage.setItem(COLLAPSE_KEY,'1') : localStorage.removeItem(COLLAPSE_KEY);
+    }
+    function openMobileSidebar() {
+      const s = document.getElementById('mainSidebar');
+      const o = document.getElementById('sidebarOverlay');
+      if (s) s.classList.add('mobile-open');
+      if (o) o.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeMobileSidebar() {
+      const s = document.getElementById('mainSidebar');
+      const o = document.getElementById('sidebarOverlay');
+      if (s) s.classList.remove('mobile-open');
+      if (o) o.classList.remove('show');
+      document.body.style.overflow = '';
+    }
+    function toggleUserMenu() {
+      const d = document.getElementById('sbuDropdown');
+      if (d) d.classList.toggle('open');
+    }
+    document.addEventListener('click', function(e) {
+      const d = document.getElementById('sbuDropdown');
+      const t = document.getElementById('sbuTrigger');
+      if (d && t && !t.contains(e.target) && !d.contains(e.target)) d.classList.remove('open');
+    });
+    window.addEventListener('DOMContentLoaded', function() {
+      const s = document.getElementById('mainSidebar');
+      if (s && localStorage.getItem(COLLAPSE_KEY) && window.innerWidth > 900) s.classList.add('collapsed');
+      document.querySelectorAll('.sidebar-nav a').forEach(function(a) {
+        a.addEventListener('click', function() { if (window.innerWidth <= 900) closeMobileSidebar(); });
+      });
+    });
+  </script>
+</head>
+<body>
+<div class="dashboard-container">
+
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
+
+  <aside class="sidebar" id="mainSidebar">
+    <button class="collapse-btn" onclick="toggleSidebarCollapse()" title="Collapse sidebar" aria-label="Collapse sidebar">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="sidebar-scroll">
+      <div class="sidebar-logo">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+        <span>InvoiceIQ</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="/dashboard/"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg><span>Dashboard</span></a>
+        <a href="/upload/"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><span>Upload Invoice</span></a>
+        <a href="/history/" class="active"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/><polyline points="12 7 12 12 16 14"/></svg><span>Document History</span></a>
+        <a href="/reports/"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg><span>Reports</span></a>
+      </nav>
+      <div class="sidebar-section-label">System</div>
+      <nav class="sidebar-nav">
+        <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg><span>Settings</span></a>
+        <a href="#"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span>Audit Logs</span></a>
+      </nav>
+      <div class="sidebar-spacer"></div>
+      <div class="sidebar-user-block">
+        <div class="sidebar-user-inner" id="sbuTrigger" onclick="toggleUserMenu()">
+          <div class="sbu-avatar sidebar-user-avatar" data-user-initials>SK</div>
+          <div class="sbu-info">
+            <div class="sbu-name sidebar-user-name" data-user-name>Sarah Jenkins</div>
+            <div class="sbu-role sidebar-user-role" data-user-role>Enterprise Admin</div>
+          </div>
+          <button class="sbu-menu-btn" aria-label="User menu">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+          </button>
+          <div class="sbu-dropdown" id="sbuDropdown">
+            <div class="sbu-dropdown-header">
+              <div class="sbu-dropdown-name" data-user-name>Sarah Jenkins</div>
+              <div class="sbu-dropdown-email" data-user-email>sarah@company.com</div>
+            </div>
+            <a href="#" class="sbu-dropdown-item"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>My Profile</a>
+            <a href="#" class="sbu-dropdown-item"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>Settings</a>
+            <div class="sbu-dropdown-divider"></div>
+            <button class="sbu-dropdown-item danger" onclick="handleLogout(event)"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Log Out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="page-wrapper">
+    <nav class="top-nav">
+      <div class="nav-left">
+        <button class="hamburger" onclick="openMobileSidebar()" aria-label="Open menu"><span></span><span></span><span></span></button>
+        <div class="nav-greeting">Document History</div>
+      </div>
+      <div class="nav-right">
+        <div class="user-info-compact" style="display:flex;flex-direction:column;align-items:flex-end;">
+          <span style="font-size:13px;font-weight:600;color:var(--text-dark);" data-user-name>Sarah Jenkins</span>
+          <span style="font-size:11px;color:var(--text-light);" data-user-role>Enterprise Admin</span>
+        </div>
+        <button class="nav-icon" data-notification-bell aria-label="Notifications">
+          <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <div class="notification-badge"></div>
+        </button>
+        <div class="user-avatar">SK</div>
+      </div>
+      <div class="notification-dropdown"></div>
+    </nav>
+
+    <main class="main-content">
+      <div class="breadcrumb" style="margin-bottom:16px;">
+        <a href="/dashboard/">Dashboard</a>
+        <span class="breadcrumb-separator">/</span>
+        <span class="breadcrumb-current">Document History</span>
+      </div>
+
+      <div class="page-header-section">
+        <div>
+          <h1 class="page-title">Document History</h1>
+          <p class="page-subtitle">Showing <strong data-history-count>150 of 1,200</strong> invoices</p>
+          <span class="page-timestamp"><span class="live-dot"></span>Updated 2 minutes ago</span>
+        </div>
+        <div class="header-actions">
+          <div class="selected-badge" id="selectedBadge">
+            <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:#1D4ED8;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;"><polyline points="20 6 9 17 4 12"/></svg>
+            <span id="selectedCount">0</span> Selected
+          </div>
+          <button class="hdr-btn hdr-btn-outline" onclick="window.print()">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            Export PDF
+          </button>
+          <button class="hdr-btn hdr-btn-solid">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+            Export Excel
+          </button>
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <div class="search-wrap">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" class="search-input" data-search placeholder="Search by vendor, invoice no., amount…">
+        </div>
+        <div class="filter-selects-group">
+          <div class="filter-select-wrap">
+            <select class="filter-select">
+              <option>Date Range</option>
+              <option>Last 7 Days</option>
+              <option>Last 30 Days</option>
+              <option>Last 90 Days</option>
+            </select>
+          </div>
+          <div class="filter-select-wrap">
+            <select class="filter-select" data-status-filter>
+              <option value="">All Statuses</option>
+              <option value="approved">Processed</option>
+              <option value="pending_review">Pending Review</option>
+              <option value="flagged">Flagged</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-section">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Vendor</th>
+                <th>Invoice No.</th>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th class="col-hidden-conf"></th>
+                <th class="col-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody data-history-table>
+              <tr>
+                <td><div class="vendor-cell"><div class="vendor-mono">AS</div><span class="vendor-name">Adobe Systems Inc.</span></div></td>
+                <td><span class="invoice-no">INV-2023-001</span></td>
+                <td>Oct 24</td>
+                <td class="amount-cell">$1,250.00</td>
+                <td><span class="status-badge status-processed"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Processed</span></td>
+                <td class="col-actions">
+                  <div class="action-group">
+                    <button class="act-btn act-view" data-tip="View" onclick="handleHistoryView(this)">
+                      <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                    <div class="act-divider"></div>
+                    <div class="act-export-wrap">
+                      <button class="act-btn act-export" data-tip="Export" onclick="toggleExportMenu(this)">
+                        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      </button>
+                      <div class="export-dropdown-menu">
+                        <button class="export-dropdown-item" onclick="handleHistoryExport(this,'excel')">
+                          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Excel (.xlsx)
+                        </button>
+                        <button class="export-dropdown-item" onclick="handleHistoryExport(this,'pdf')">
+                          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF
+                        </button>
+                      </div>
+                    </div>
+                    <div class="act-divider"></div>
+                    <button class="act-btn act-more" data-tip="More">
+                      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><div class="vendor-cell"><div class="vendor-mono">AW</div><span class="vendor-name">Amazon Web Services</span></div></td>
+                <td><span class="invoice-no">AWS-88219-B</span></td>
+                <td>Oct 23</td>
+                <td class="amount-cell">$4,821.50</td>
+                <td><span class="status-badge status-pending"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Pending Review</span></td>
+                <td class="col-actions">
+                  <div class="action-group">
+                    <button class="act-btn act-view" data-tip="View" onclick="handleHistoryView(this)">
+                      <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                    <div class="act-divider"></div>
+                    <div class="act-export-wrap">
+                      <button class="act-btn act-export" data-tip="Export" onclick="toggleExportMenu(this)">
+                        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      </button>
+                      <div class="export-dropdown-menu">
+                        <button class="export-dropdown-item" onclick="handleHistoryExport(this,'excel')">
+                          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Excel (.xlsx)
+                        </button>
+                        <button class="export-dropdown-item" onclick="handleHistoryExport(this,'pdf')">
+                          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF
+                        </button>
+                      </div>
+                    </div>
+                    <div class="act-divider"></div>
+                    <button class="act-btn act-more" data-tip="More">
+                      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><div class="vendor-cell"><div class="vendor-mono">SL</div><span class="vendor-name">Slack Technologies</span></div></td>
+                <td><span class="invoice-no">SL-2023-01</span></td>
+                <td>Oct 22</td>
+                <td class="amount-cell">$349.00</td>
+                <td><span class="status-badge status-flagged"><svg viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>Flagged</span></td>
+                <td class="col-actions">
+                  <div class="action-group">
+                    <button class="act-btn act-view" data-tip="View" onclick="handleHistoryView(this)">
+                      <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                    <div class="act-divider"></div>
+                    <div class="act-export-wrap">
+                      <button class="act-btn act-export" data-tip="Export" onclick="toggleExportMenu(this)">
+                        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      </button>
+                      <div class="export-dropdown-menu">
+                        <button class="export-dropdown-item" onclick="handleHistoryExport(this,'excel')">
+                          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Excel (.xlsx)
+                        </button>
+                        <button class="export-dropdown-item" onclick="handleHistoryExport(this,'pdf')">
+                          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF
+                        </button>
+                      </div>
+                    </div>
+                    <div class="act-divider"></div>
+                    <button class="act-btn act-more" data-tip="More">
+                      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><div class="vendor-cell"><div class="vendor-mono">GH</div><span class="vendor-name">GitHub Enterprise</span></div></td>
+                <td><span class="invoice-no">GH-4512</span></td>
+                <td>Oct 21</td>
+                <td class="amount-cell">$2,400.00</td>
+                <td><span class="status-badge status-processed"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Processed</span></td>
+                <td class="col-actions">
+                  <div class="action-group">
+                    <button class="act-btn act-view" data-tip="View" onclick="handleHistoryView(this)">
+                      <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                    <div class="act-divider"></div>
+                    <div class="act-export-wrap">
+                      <button class="act-btn act-export" data-tip="Export" onclick="toggleExportMenu(this)">
+                        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      </button>
+                      <div class="export-dropdown-menu">
+                        <button class="export-dropdown-item" onclick="handleHistoryExport(this,'excel')">
+                          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Excel (.xlsx)
+                        </button>
+                        <button class="export-dropdown-item" onclick="handleHistoryExport(this,'pdf')">
+                          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF
+                        </button>
+                      </div>
+                    </div>
+                    <div class="act-divider"></div>
+                    <button class="act-btn act-more" data-tip="More">
+                      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><div class="vendor-cell"><div class="vendor-mono">ZM</div><span class="vendor-name">Zoom Video Comm.</span></div></td>
+                <td><span class="invoice-no">ZM-992-K</span></td>
+                <td>Oct 20</td>
+                <td class="amount-cell">$159.00</td>
+                <td><span class="status-badge status-processed"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Processed</span></td>
+                <td class="col-actions">
+                  <div class="action-group">
+                    <button class="act-btn act-view" data-tip="View" onclick="handleHistoryView(this)">
+                      <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                    <div class="act-divider"></div>
+                    <div class="act-export-wrap">
+                      <button class="act-btn act-export" data-tip="Export" onclick="toggleExportMenu(this)">
+                        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      </button>
+                      <div class="export-dropdown-menu">
+                        <button class="export-dropdown-item" onclick="handleHistoryExport(this,'excel')">
+                          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Excel (.xlsx)
+                        </button>
+                        <button class="export-dropdown-item" onclick="handleHistoryExport(this,'pdf')">
+                          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF
+                        </button>
+                      </div>
+                    </div>
+                    <div class="act-divider"></div>
+                    <button class="act-btn act-more" data-tip="More">
+                      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><div class="vendor-cell"><div class="vendor-mono">DO</div><span class="vendor-name">DigitalOcean Inc.</span></div></td>
+                <td><span class="invoice-no">DO-8827</span></td>
+                <td>Oct 20</td>
+                <td class="amount-cell">$842.20</td>
+                <td><span class="status-badge status-archived"><svg viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>Archived</span></td>
+                <td class="col-actions">
+                  <div class="action-group">
+                    <button class="act-btn act-view" data-tip="View" onclick="handleHistoryView(this)">
+                      <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                    <div class="act-divider"></div>
+                    <div class="act-export-wrap">
+                      <button class="act-btn act-export" data-tip="Export" onclick="toggleExportMenu(this)">
+                        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      </button>
+                      <div class="export-dropdown-menu">
+                        <button class="export-dropdown-item" onclick="handleHistoryExport(this,'excel')">
+                          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Excel (.xlsx)
+                        </button>
+                        <button class="export-dropdown-item" onclick="handleHistoryExport(this,'pdf')">
+                          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF
+                        </button>
+                      </div>
+                    </div>
+                    <div class="act-divider"></div>
+                    <button class="act-btn act-more" data-tip="More">
+                      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><div class="vendor-cell"><div class="vendor-mono">MA</div><span class="vendor-name">Microsoft Azure</span></div></td>
+                <td><span class="invoice-no">MSFT-12938</span></td>
+                <td>Oct 19</td>
+                <td class="amount-cell">$12,490.15</td>
+                <td><span class="status-badge status-processed"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Processed</span></td>
+                <td class="col-actions">
+                  <div class="action-group">
+                    <button class="act-btn act-view" data-tip="View" onclick="handleHistoryView(this)">
+                      <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                    <div class="act-divider"></div>
+                    <div class="act-export-wrap">
+                      <button class="act-btn act-export" data-tip="Export" onclick="toggleExportMenu(this)">
+                        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      </button>
+                      <div class="export-dropdown-menu">
+                        <button class="export-dropdown-item" onclick="handleHistoryExport(this,'excel')">
+                          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Excel (.xlsx)
+                        </button>
+                        <button class="export-dropdown-item" onclick="handleHistoryExport(this,'pdf')">
+                          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF
+                        </button>
+                      </div>
+                    </div>
+                    <div class="act-divider"></div>
+                    <button class="act-btn act-more" data-tip="More">
+                      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td><div class="vendor-cell"><div class="vendor-mono">FG</div><span class="vendor-name">Figma Design</span></div></td>
+                <td><span class="invoice-no">FIG-4421</span></td>
+                <td>Oct 18</td>
+                <td class="amount-cell">$1,200.00</td>
+                <td><span class="status-badge status-processed"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Processed</span></td>
+                <td class="col-actions">
+                  <div class="action-group">
+                    <button class="act-btn act-view" data-tip="View" onclick="handleHistoryView(this)">
+                      <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>
+                    <div class="act-divider"></div>
+                    <div class="act-export-wrap">
+                      <button class="act-btn act-export" data-tip="Export" onclick="toggleExportMenu(this)">
+                        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      </button>
+                      <div class="export-dropdown-menu">
+                        <button class="export-dropdown-item" onclick="handleHistoryExport(this,'excel')">
+                          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Excel (.xlsx)
+                        </button>
+                        <button class="export-dropdown-item" onclick="handleHistoryExport(this,'pdf')">
+                          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>PDF
+                        </button>
+                      </div>
+                    </div>
+                    <div class="act-divider"></div>
+                    <button class="act-btn act-more" data-tip="More">
+                      <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr id="empty-state" style="display:none;">
+                <td colspan="6" class="empty-state-cell">
+                  <div class="empty-icon-wrap"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+                  <div class="empty-title">No invoices found</div>
+                  <div class="empty-sub">Try adjusting your search or filter criteria</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Mobile cards -->
+        <div class="mobile-cards">
+          <div class="inv-card">
+            <div class="inv-card-top">
+              <div class="inv-card-vendor">
+                <div class="vendor-mono">AS</div>
+                <div><div class="inv-card-name">Adobe Systems Inc.</div><div class="inv-card-no">INV-2023-001</div></div>
+              </div>
+              <span class="status-badge status-processed"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Processed</span>
+            </div>
+            
+            <div class="inv-card-row">
+              <div><div class="inv-card-amount">$1,250.00</div><div class="inv-card-date">Oct 24</div></div>
+              <div class="inv-card-actions"><button class="inv-card-btn inv-card-btn-view" onclick="handleHistoryView(this)"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>View</button><button class="inv-card-btn inv-card-btn-export"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export</button></div>
+            </div>
+          </div>
+          <div class="inv-card">
+            <div class="inv-card-top">
+              <div class="inv-card-vendor">
+                <div class="vendor-mono">AW</div>
+                <div><div class="inv-card-name">Amazon Web Services</div><div class="inv-card-no">AWS-88219-B</div></div>
+              </div>
+              <span class="status-badge status-pending"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Pending</span>
+            </div>
+            
+            <div class="inv-card-row">
+              <div><div class="inv-card-amount">$4,821.50</div><div class="inv-card-date">Oct 23</div></div>
+              <div class="inv-card-actions"><button class="inv-card-btn inv-card-btn-view" onclick="handleHistoryView(this)"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>View</button><button class="inv-card-btn inv-card-btn-export"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export</button></div>
+            </div>
+          </div>
+          <div class="inv-card">
+            <div class="inv-card-top">
+              <div class="inv-card-vendor">
+                <div class="vendor-mono">SL</div>
+                <div><div class="inv-card-name">Slack Technologies</div><div class="inv-card-no">SL-2023-01</div></div>
+              </div>
+              <span class="status-badge status-flagged"><svg viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>Flagged</span>
+            </div>
+            
+            <div class="inv-card-row">
+              <div><div class="inv-card-amount">$349.00</div><div class="inv-card-date">Oct 22</div></div>
+              <div class="inv-card-actions"><button class="inv-card-btn inv-card-btn-view" onclick="handleHistoryView(this)"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>View</button><button class="inv-card-btn inv-card-btn-export"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export</button></div>
+            </div>
+          </div>
+          <div class="inv-card">
+            <div class="inv-card-top">
+              <div class="inv-card-vendor">
+                <div class="vendor-mono">GH</div>
+                <div><div class="inv-card-name">GitHub Enterprise</div><div class="inv-card-no">GH-4512</div></div>
+              </div>
+              <span class="status-badge status-processed"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Processed</span>
+            </div>
+            
+            <div class="inv-card-row">
+              <div><div class="inv-card-amount">$2,400.00</div><div class="inv-card-date">Oct 21</div></div>
+              <div class="inv-card-actions"><button class="inv-card-btn inv-card-btn-view" onclick="handleHistoryView(this)"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>View</button><button class="inv-card-btn inv-card-btn-export"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export</button></div>
+            </div>
+          </div>
+          <div class="inv-card">
+            <div class="inv-card-top">
+              <div class="inv-card-vendor">
+                <div class="vendor-mono">DO</div>
+                <div><div class="inv-card-name">DigitalOcean Inc.</div><div class="inv-card-no">DO-8827</div></div>
+              </div>
+              <span class="status-badge status-archived"><svg viewBox="0 0 24 24"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>Archived</span>
+            </div>
+            
+            <div class="inv-card-row">
+              <div><div class="inv-card-amount">$842.20</div><div class="inv-card-date">Oct 20</div></div>
+              <div class="inv-card-actions"><button class="inv-card-btn inv-card-btn-view" onclick="handleHistoryView(this)"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>View</button><button class="inv-card-btn inv-card-btn-export"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export</button></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pagination">
+          <div class="pagination-left">
+            <div class="per-page-wrap">
+              <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+              <select class="per-page-select"><option>25 rows</option><option>50 rows</option><option>100 rows</option></select>
+            </div>
+            <span class="pagination-info">Showing 1&ndash;25 of 1,200</span>
+          </div>
+          <div class="pagination-controls">
+            <button class="pagination-btn" disabled>
+              <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>Prev
+            </button>
+            <button class="pagination-btn active pg-num">1</button>
+            <button class="pagination-btn pg-num">2</button>
+            <button class="pagination-btn pg-num">3</button>
+            <span class="pg-dots">&hellip;</span>
+            <button class="pagination-btn pg-num">48</button>
+            <button class="pagination-btn">Next<svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="modal" id="invoiceModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Invoice Details</div>
+        <div class="modal-subtitle">INV-2023-001</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span class="status-badge status-processed"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>Processed</span>
+        <button class="modal-close" onclick="document.getElementById('invoiceModal').classList.remove('active')">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="modal-meta-grid">
+        <div><div class="modal-field-label">Vendor</div><div class="modal-field-value">ABC Suppliers Ltd</div></div>
+        <div><div class="modal-field-label">Invoice Number</div><div class="modal-field-value">INV-2023-001</div></div>
+        <div><div class="modal-field-label">Invoice Date</div><div class="modal-field-value">Oct 24, 2023</div></div>
+        <div><div class="modal-field-label">Due Date</div><div class="modal-field-value">Nov 24, 2023</div></div>
+        <div><div class="modal-field-label">Total Amount</div><div class="modal-field-value amount">$1,250.00</div></div>
+        <div><div class="modal-field-label">Confidence</div><div class="modal-field-value" style="color:#059669;">&#10003; High</div></div>
+      </div>
+      <div class="modal-section-label">Line Items</div>
+      <table class="modal-line-table">
+        <thead><tr><th>Item</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
+        <tbody>
+          <tr><td>Office Supplies</td><td>50</td><td>$15.00</td><td>$750.00</td></tr>
+          <tr><td>Equipment Rental</td><td>2</td><td>$250.00</td><td>$500.00</td></tr>
+          <tr><td colspan="3" style="text-align:right;color:var(--text-light);">Total</td><td>$1,250.00</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="modal-btn modal-btn-ghost" onclick="document.getElementById('invoiceModal').classList.remove('active')">Close</button>
+      <a href="/history/" class="modal-btn modal-btn-primary">View Full History <svg viewBox="0 0 24 24" style="width:13px;height:13px;stroke:#fff;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;"><polyline points="9 18 15 12 9 6"/></svg></a>
+    </div>
+  </div>
+</div>
+
+<script src="{% static 'js/main.js' %}"></script>
+<script>
+  function toggleExportMenu(btn) {
+    const menu = btn.closest('.act-export-wrap').querySelector('.export-dropdown-menu');
+    document.querySelectorAll('.export-dropdown-menu.open').forEach(function(m){ if(m!==menu) m.classList.remove('open'); });
+    menu.classList.toggle('open');
+    event.stopPropagation();
+  }
+  document.addEventListener('click', function(){
+    document.querySelectorAll('.export-dropdown-menu.open').forEach(function(m){ m.classList.remove('open'); });
+  });
+  function getRowInvoiceId(el) {
+    var row = el.closest('tr');
+    return row ? row.dataset.invoiceId : null;
+  }
+  function handleHistoryView(btn) {
+    var id = getRowInvoiceId(btn);
+    if (id) { window.location.href = '/review/?id=' + id; }
+    else { document.getElementById('invoiceModal').classList.add('active'); }
+  }
+  async function handleHistoryExport(btn, format) {
+    btn.closest('.export-dropdown-menu').classList.remove('open');
+    var id = getRowInvoiceId(btn);
+    if (!id) { if(typeof showToast!=='undefined') showToast('Cannot export: invoice ID not found','error'); return; }
+    var token = sessionStorage.getItem('access_token');
+    if (!token) { if(typeof showToast!=='undefined') showToast('Session expired','error'); return; }
+    var toggle = btn.closest('.act-export-wrap').querySelector('.act-btn');
+    var orig = toggle.innerHTML;
+    toggle.disabled = true;
+    try {
+      var res = await fetch('/api/invoices/'+id+'/export/?export_format='+format, {headers:{'Authorization':'Bearer '+token}});
+      if (!res.ok) { var err = await res.json().catch(function(){return {};}); throw new Error(err.error||'HTTP '+res.status); }
+      var blob = await res.blob();
+      var ext = format==='pdf'?'pdf':'xlsx';
+      var disp = res.headers.get('Content-Disposition')||'';
+      var match = disp.match(/filename="?([^"]+)"?/);
+      var fname = match?match[1]:'invoice_'+id+'.'+ext;
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a'); a.href=url; a.download=fname; a.click();
+      URL.revokeObjectURL(url);
+      if(typeof showToast!=='undefined') showToast(format.toUpperCase()+' downloaded','success');
+    } catch(e) {
+      if(typeof showToast!=='undefined') showToast('Export failed: '+e.message,'error');
+    } finally {
+      toggle.innerHTML = orig; toggle.disabled = false;
+    }
+  }
+  document.getElementById('invoiceModal').addEventListener('click', function(e){
+    if(e.target===this) this.classList.remove('active');
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,623 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Create Account - InvoiceIQ</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231E3A5F'/%3E%3Crect x='6' y='4' width='14' height='18' rx='2' fill='white' opacity='0.9'/%3E%3Cpath d='M14 13l2 2 4-5' stroke='%2327AE60' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #F3F4F6;
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* ── Left panel ── */
+    .auth-left {
+      width: 420px;
+      flex-shrink: 0;
+      background: linear-gradient(160deg, #1E3A5F 0%, #152847 60%, #0F1E35 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 48px 40px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .auth-left::before {
+      content: '';
+      position: absolute;
+      top: -100px; right: -100px;
+      width: 340px; height: 340px;
+      border-radius: 50%;
+      background: rgba(37,99,235,0.12);
+    }
+    .auth-left::after {
+      content: '';
+      position: absolute;
+      bottom: -80px; left: -80px;
+      width: 280px; height: 280px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.04);
+    }
+
+    /* Subtle grid overlay */
+    .auth-left-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      z-index: 0;
+    }
+    .auth-left > * { position: relative; z-index: 1; }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #fff;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .brand-icon {
+      width: 40px; height: 40px;
+      background: rgba(255,255,255,0.12);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .brand-icon svg { opacity: 0.95; }
+
+    .left-headline {
+      color: white;
+    }
+    .left-headline h2 {
+      font-size: 26px;
+      font-weight: 700;
+      line-height: 1.35;
+      margin-bottom: 14px;
+      letter-spacing: -0.3px;
+    }
+    .left-headline p {
+      font-size: 14px;
+      color: rgba(255,255,255,0.6);
+      line-height: 1.7;
+    }
+
+    .left-features {
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+    }
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      color: rgba(255,255,255,0.8);
+      font-size: 13px;
+    }
+    .feature-icon {
+      width: 22px; height: 22px;
+      border-radius: 6px;
+      background: rgba(16,185,129,0.2);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .feature-icon svg {
+      width: 12px; height: 12px;
+      stroke: #10B981; fill: none;
+      stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round;
+    }
+
+    /* ── Right panel ── */
+    .auth-right {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 32px;
+      overflow-y: auto;
+    }
+
+    .register-card {
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+
+    .register-card h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #111827;
+      margin-bottom: 6px;
+    }
+    .register-card .subtitle {
+      font-size: 13px;
+      color: #6B7280;
+      margin-bottom: 28px;
+    }
+
+    /* ── Form ── */
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid #E5E7EB;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+      color: #111827;
+      background: #FAFAFA;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+    }
+    .form-group input:focus,
+    .form-group select:focus {
+      border-color: #1E3A5F;
+      box-shadow: 0 0 0 3px rgba(30,58,95,0.08);
+      background: white;
+    }
+    .form-group input.error { border-color: #EF4444; }
+    .form-group .field-error {
+      font-size: 11px;
+      color: #EF4444;
+      margin-top: 4px;
+      display: none;
+    }
+    .form-group .field-error.visible { display: block; }
+
+    .password-wrapper { position: relative; }
+    .password-toggle {
+      position: absolute;
+      right: 12px; top: 50%;
+      transform: translateY(-50%);
+      background: none; border: none;
+      cursor: pointer; color: #9CA3AF;
+      font-size: 12px; font-weight: 600;
+      font-family: 'Inter', sans-serif;
+    }
+    .password-toggle:hover { color: #374151; }
+
+    .password-strength {
+      margin-top: 6px;
+      display: none;
+    }
+    .password-strength.visible { display: block; }
+    .strength-bar {
+      height: 4px;
+      background: #E5E7EB;
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 4px;
+    }
+    .strength-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.3s, background 0.3s;
+      width: 0%;
+    }
+    .strength-label { font-size: 11px; color: #6B7280; }
+
+    .divider {
+      height: 1px;
+      background: #F3F4F6;
+      margin: 8px 0 20px;
+      position: relative;
+    }
+    .divider span {
+      position: absolute;
+      left: 0; top: -8px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #9CA3AF;
+      background: white;
+      padding-right: 10px;
+    }
+
+    .error-box {
+      background: #FEF2F2;
+      border: 1px solid #FECACA;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: #991B1B;
+      margin-bottom: 18px;
+      display: none;
+    }
+    .error-box.visible { display: block; }
+
+    .success-box {
+      background: #F0FDF4;
+      border: 1px solid #BBF7D0;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: #166534;
+      margin-bottom: 18px;
+      display: none;
+    }
+    .success-box.visible { display: block; }
+
+    .register-btn {
+      width: 100%;
+      padding: 13px;
+      background: #1E3A5F;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      margin-top: 4px;
+    }
+    .register-btn:hover { background: #152847; }
+    .register-btn:active { transform: scale(0.99); }
+    .register-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    .login-link {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 13px;
+      color: #6B7280;
+    }
+    .login-link a {
+      color: #1E3A5F;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .login-link a:hover { text-decoration: underline; }
+
+    .terms {
+      font-size: 11px;
+      color: #9CA3AF;
+      text-align: center;
+      margin-top: 14px;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 768px) {
+      body { flex-direction: column; }
+      .auth-left { width: 100%; padding: 32px 24px; min-height: auto; }
+      .left-headline h2 { font-size: 22px; }
+      .left-features { display: none; }
+      .auth-right { padding: 24px 16px; }
+      .register-card { padding: 28px 20px; }
+      .form-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Left Panel -->
+  <div class="auth-left">
+    <div class="auth-left-grid"></div>
+
+    <div class="brand">
+      <div class="brand-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+          <polyline points="13 2 13 9 20 9"/>
+        </svg>
+      </div>
+      InvoiceIQ
+    </div>
+
+    <div class="left-headline">
+      <h2>Start processing invoices smarter</h2>
+      <p>Set up your organization account and let AI handle the extraction, validation, and routing — automatically.</p>
+    </div>
+
+    <div class="left-features">
+      <div class="feature-item">
+        <div class="feature-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+        AI extracts all fields in seconds
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+        Automatic confidence scoring
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+        Full audit trail on every invoice
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+        Export to Excel, PDF, or accounting systems
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+        Team approval workflows built in
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Panel -->
+  <div class="auth-right">
+    <div class="register-card">
+      <h1>Create your account</h1>
+      <p class="subtitle">Fill in the details below to get started. Takes less than 2 minutes.</p>
+
+      <div class="error-box" id="register-error"></div>
+      <div class="success-box" id="register-success"></div>
+
+      <!-- Personal Details -->
+      <div class="form-row">
+        <div class="form-group">
+          <label>First Name</label>
+          <input type="text" id="first_name" placeholder="Moses" autocomplete="given-name">
+          <div class="field-error" id="err-first_name"></div>
+        </div>
+        <div class="form-group">
+          <label>Last Name</label>
+          <input type="text" id="last_name" placeholder="Mulwa" autocomplete="family-name">
+          <div class="field-error" id="err-last_name"></div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Work Email</label>
+        <input type="email" id="email" placeholder="moses@company.com" autocomplete="email">
+        <div class="field-error" id="err-email"></div>
+      </div>
+
+      <div class="form-group">
+        <label>Password</label>
+        <div class="password-wrapper">
+          <input type="password" id="password" placeholder="Minimum 8 characters" autocomplete="new-password"
+                 oninput="checkPasswordStrength(this.value)">
+          <button class="password-toggle" type="button" onclick="togglePassword('password', this)">Show</button>
+        </div>
+        <div class="password-strength" id="pwd-strength">
+          <div class="strength-bar"><div class="strength-fill" id="strength-fill"></div></div>
+          <span class="strength-label" id="strength-label">Too short</span>
+        </div>
+        <div class="field-error" id="err-password"></div>
+      </div>
+
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <div class="password-wrapper">
+          <input type="password" id="confirm_password" placeholder="Repeat your password" autocomplete="new-password">
+          <button class="password-toggle" type="button" onclick="togglePassword('confirm_password', this)">Show</button>
+        </div>
+        <div class="field-error" id="err-confirm_password"></div>
+      </div>
+
+      <!-- Organisation Details -->
+      <div class="divider"><span>Organisation</span></div>
+
+      <div class="form-group">
+        <label>Organisation Name</label>
+        <input type="text" id="organization_name" placeholder="Acme Corporation" autocomplete="organization">
+        <div class="field-error" id="err-organization_name"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Your Role</label>
+          <select id="role">
+            <option value="admin">Admin</option>
+            <option value="manager">Finance Manager</option>
+            <option value="reviewer">Reviewer</option>
+            <option value="viewer">Viewer</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Industry</label>
+          <select id="industry">
+            <option value="">Select…</option>
+            <option value="retail">Retail</option>
+            <option value="manufacturing">Manufacturing</option>
+            <option value="healthcare">Healthcare</option>
+            <option value="logistics">Logistics</option>
+            <option value="technology">Technology</option>
+            <option value="finance">Finance</option>
+            <option value="education">Education</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="register-btn" id="register-btn" onclick="handleRegister(event)">
+        Create Account →
+      </button>
+
+      <div class="login-link">
+        Already have an account? <a href="/">Sign in</a>
+      </div>
+
+      <div class="terms">
+        By creating an account you agree to our Terms of Service and Privacy Policy.
+      </div>
+    </div>
+  </div>
+
+  <script src="{% static 'js/main.js' %}"></script>
+  <script>
+    function togglePassword(fieldId, btn) {
+      const input = document.getElementById(fieldId);
+      const isPassword = input.type === 'password';
+      input.type = isPassword ? 'text' : 'password';
+      btn.textContent = isPassword ? 'Hide' : 'Show';
+    }
+
+    function checkPasswordStrength(val) {
+      const strengthEl = document.getElementById('pwd-strength');
+      const fill       = document.getElementById('strength-fill');
+      const label      = document.getElementById('strength-label');
+
+      strengthEl.classList.toggle('visible', val.length > 0);
+      if (!val) return;
+
+      let score = 0;
+      if (val.length >= 8)  score++;
+      if (val.length >= 12) score++;
+      if (/[A-Z]/.test(val)) score++;
+      if (/[0-9]/.test(val)) score++;
+      if (/[^A-Za-z0-9]/.test(val)) score++;
+
+      const levels = [
+        { pct: '20%', color: '#EF4444', text: 'Too weak' },
+        { pct: '40%', color: '#F59E0B', text: 'Weak' },
+        { pct: '60%', color: '#F59E0B', text: 'Fair' },
+        { pct: '80%', color: '#10B981', text: 'Good' },
+        { pct: '100%', color: '#10B981', text: 'Strong' },
+      ];
+      const level = levels[Math.min(score, 4)];
+      fill.style.width      = level.pct;
+      fill.style.background = level.color;
+      label.textContent     = level.text;
+      label.style.color     = level.color;
+    }
+
+    function _showFieldError(id, msg) {
+      const el = document.getElementById('err-' + id);
+      const input = document.getElementById(id);
+      if (el) { el.textContent = msg; el.classList.add('visible'); }
+      if (input) input.classList.add('error');
+    }
+
+    function _clearErrors() {
+      document.querySelectorAll('.field-error').forEach(el => {
+        el.textContent = '';
+        el.classList.remove('visible');
+      });
+      document.querySelectorAll('input.error').forEach(el => el.classList.remove('error'));
+      document.getElementById('register-error').classList.remove('visible');
+      document.getElementById('register-success').classList.remove('visible');
+    }
+
+    function _showError(msg) {
+      const box = document.getElementById('register-error');
+      box.textContent = msg;
+      box.classList.add('visible');
+    }
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      _clearErrors();
+
+      const firstName  = document.getElementById('first_name').value.trim();
+      const lastName   = document.getElementById('last_name').value.trim();
+      const email      = document.getElementById('email').value.trim();
+      const password   = document.getElementById('password').value;
+      const confirm    = document.getElementById('confirm_password').value;
+      const orgName    = document.getElementById('organization_name').value.trim();
+      const role       = document.getElementById('role').value;
+      const industry   = document.getElementById('industry').value;
+
+      // Client-side validation
+      let hasError = false;
+      if (!firstName) { _showFieldError('first_name', 'First name is required'); hasError = true; }
+      if (!lastName)  { _showFieldError('last_name',  'Last name is required');  hasError = true; }
+      if (!email)     { _showFieldError('email', 'Email is required'); hasError = true; }
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        _showFieldError('email', 'Enter a valid email address'); hasError = true;
+      }
+      if (!password)         { _showFieldError('password', 'Password is required'); hasError = true; }
+      else if (password.length < 8) { _showFieldError('password', 'Password must be at least 8 characters'); hasError = true; }
+      if (password !== confirm) { _showFieldError('confirm_password', 'Passwords do not match'); hasError = true; }
+      if (!orgName) { _showFieldError('organization_name', 'Organisation name is required'); hasError = true; }
+      if (hasError) return;
+
+      const btn = document.getElementById('register-btn');
+      btn.textContent = 'Creating account…';
+      btn.disabled = true;
+
+      let succeeded = false;
+
+      try {
+        const response = await fetch('/api/auth/register/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            first_name:        firstName,
+            last_name:         lastName,
+            email:             email,
+            password:          password,
+            organization_name: orgName,
+            role:              role,
+            industry:          industry,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          // Handle field-level errors from DRF
+          if (data.email)    _showFieldError('email',    Array.isArray(data.email)    ? data.email[0]    : data.email);
+          if (data.password) _showFieldError('password', Array.isArray(data.password) ? data.password[0] : data.password);
+          if (data.error)    _showError(data.error);
+          if (!data.email && !data.password && !data.error) {
+            _showError('Registration failed. Please check your details and try again.');
+          }
+          return;
+        }
+
+        // Success — store tokens and redirect
+        sessionStorage.setItem('access_token',  data.access);
+        sessionStorage.setItem('refresh_token', data.refresh);
+        sessionStorage.setItem('user',          JSON.stringify(data.user));
+
+        succeeded = true;
+        const successBox = document.getElementById('register-success');
+        successBox.textContent = `Account created! Welcome, ${firstName}. Redirecting to dashboard…`;
+        successBox.classList.add('visible');
+
+        setTimeout(() => { window.location.href = '/dashboard/'; }, 1200);
+
+      } catch (err) {
+        _showError('Network error. Please check your connection and try again.');
+      } finally {
+        // Only re-enable the button on failure — keep it disabled during redirect
+        if (!succeeded) {
+          btn.textContent = 'Create Account →';
+          btn.disabled = false;
+        }
+      }
+    }
+
+    // Allow Enter key to submit — but NOT inside select or button elements
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && e.target.tagName !== 'SELECT' && e.target.tagName !== 'BUTTON') {
+        handleRegister(e);
+      }
+    });
+  </script>
+</body>
+</html>

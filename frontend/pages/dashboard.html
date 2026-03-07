@@ -1,0 +1,971 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - InvoiceIQ</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+  <style>
+    :root {
+      --sidebar-width: 260px;
+      --sidebar-width-collapsed: 64px;
+    }
+    
+    /* ═══════════════════════════════════════════
+       ROOT VARIABLES
+    ═══════════════════════════════════════════ */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Push system section and user block to bottom */
+    .sidebar-spacer { flex: 1; }
+
+    /* User profile block at bottom of sidebar */
+    .sidebar-user-block {
+      padding: 12px 16px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .sidebar-user-inner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+      position: relative;
+    }
+    .sidebar-user-inner:hover { background: rgba(255,255,255,0.07); }
+
+    .sbu-avatar {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.15);
+      border: 1.5px solid rgba(255,255,255,0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: #fff;
+      flex-shrink: 0;
+    }
+
+    .sbu-info { flex: 1; min-width: 0; }
+    .sbu-name {
+      font-size: 13px; font-weight: 600; color: #fff;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sbu-role { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 1px; }
+
+    .sbu-menu-btn {
+      width: 26px; height: 26px;
+      border-radius: 6px;
+      background: none; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .sbu-menu-btn:hover { background: rgba(255,255,255,0.1); }
+    .sbu-menu-btn svg { stroke: rgba(255,255,255,0.5); }
+
+    /* User dropdown */
+    .sbu-dropdown {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 0; right: 0;
+      background: #fff;
+      border-radius: 10px;
+      border: 1px solid var(--border-light);
+      box-shadow: 0 8px 24px rgba(15,27,45,0.16);
+      overflow: hidden;
+      z-index: 200;
+    }
+    .sbu-dropdown.open { display: block; }
+
+    .sbu-dropdown-header {
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .sbu-dropdown-name { font-size: 13px; font-weight: 700; color: var(--text-dark); }
+    .sbu-dropdown-email { font-size: 11px; color: var(--text-light); margin-top: 1px; }
+
+    .sbu-dropdown-item {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 14px;
+      font-size: 13px; color: var(--text-dark);
+      cursor: pointer; transition: background 0.13s;
+      background: none; border: none; width: 100%; text-align: left;
+      font-family: 'DM Sans', sans-serif;
+      text-decoration: none;
+    }
+    .sbu-dropdown-item:hover { background: var(--bg-light); }
+    .sbu-dropdown-item svg { width: 14px; height: 14px; stroke: var(--text-light); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+    .sbu-dropdown-item.danger { color: var(--danger); }
+    .sbu-dropdown-item.danger svg { stroke: var(--danger); }
+    .sbu-dropdown-divider { height: 1px; background: var(--border-light); margin: 2px 0; }
+
+    /* Page heading row */
+    .pg-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 24px; gap: 16px; flex-wrap: wrap;
+    }
+    .pg-row h1 { font-size: 20px; font-weight: 700; color: var(--text-dark); }
+    .pg-row p  { font-size: 13px; color: var(--text-light); margin-top: 2px; }
+
+    .btn-upload {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 10px 20px;
+      background: var(--primary); color: #fff;
+      border: none; border-radius: 9px;
+      font-size: 13px; font-weight: 700;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer; text-decoration: none;
+      transition: all 0.18s;
+      box-shadow: 0 2px 8px rgba(30,58,95,0.22);
+      white-space: nowrap;
+    }
+    .btn-upload:hover { background: #152B4F; box-shadow: 0 4px 14px rgba(30,58,95,0.32); transform: translateY(-1px); }
+    .btn-upload svg { width: 15px; height: 15px; stroke: #fff; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* ═══════════════════════════════════════════
+       KPI CARDS
+    ═══════════════════════════════════════════ */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    /* force all 4 to always sit in one row until 900px */
+    @media (min-width: 901px) {
+      .kpi-grid { grid-template-columns: repeat(4, 1fr) !important; }
+    }
+
+    .kpi-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 18px 20px;
+      border: 1px solid var(--border-light);
+      box-shadow: 0 1px 4px rgba(15,27,45,0.05);
+      transition: box-shadow 0.18s, transform 0.18s;
+      position: relative;
+      overflow: hidden;
+    }
+    .kpi-card:hover { box-shadow: 0 4px 16px rgba(15,27,45,0.10); transform: translateY(-1px); }
+
+    /* coloured top accent line */
+    .kpi-card::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 3px; border-radius: 14px 14px 0 0;
+    }
+    .kpi-card.blue::before   { background: var(--primary); }
+    .kpi-card.amber::before  { background: var(--warning); }
+    .kpi-card.green::before  { background: var(--success); }
+    .kpi-card.purple::before { background: #7C3AED; }
+
+    .kpi-top {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .kpi-icon {
+      width: 36px; height: 36px; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .kpi-icon.blue   { background: #EEF3FB; }
+    .kpi-icon.amber  { background: #FEF3C7; }
+    .kpi-icon.green  { background: #D1FAE5; }
+    .kpi-icon.purple { background: #EDE9FE; }
+    .kpi-icon svg { width: 18px; height: 18px; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .kpi-icon.blue   svg { stroke: var(--primary); }
+    .kpi-icon.amber  svg { stroke: #D97706; }
+    .kpi-icon.green  svg { stroke: #059669; }
+    .kpi-icon.purple svg { stroke: #7C3AED; }
+
+    .kpi-badge {
+      font-size: 10px; font-weight: 700;
+      padding: 2px 7px; border-radius: 99px;
+    }
+    .kpi-badge.up   { background: #D1FAE5; color: #065F46; }
+    .kpi-badge.warn { background: #FEF3C7; color: #92400E; }
+
+    .kpi-value {
+      font-size: 30px; font-weight: 700; color: var(--text-dark);
+      font-family: 'DM Mono', monospace;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .kpi-card.amber .kpi-value { color: #D97706; }
+
+    .kpi-label { font-size: 12px; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 10px; }
+    .kpi-sub   { font-size: 12px; color: var(--text-light); }
+
+    /* Pending review card CTA */
+    .kpi-cta {
+      display: inline-flex; align-items: center; gap: 5px;
+      margin-top: 8px;
+      font-size: 12px; font-weight: 600; color: #D97706;
+      background: #FEF3C7; border: 1px solid #FDE68A;
+      padding: 4px 10px; border-radius: 6px;
+      text-decoration: none; transition: all 0.15s;
+    }
+    .kpi-cta:hover { background: #FDE68A; }
+    .kpi-cta svg { width: 11px; height: 11px; stroke: #D97706; fill: none; stroke-width: 2.5; stroke-linecap: round; }
+
+    /* ═══════════════════════════════════════════
+       QUICK ACTIONS STRIP
+    ═══════════════════════════════════════════ */
+    .quick-strip {
+      display: flex; gap: 12px;
+      margin-bottom: 24px; flex-wrap: wrap;
+    }
+
+    .qa-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 16px;
+      background: #fff; border: 1px solid var(--border-light);
+      border-radius: 10px;
+      font-size: 13px; font-weight: 600; color: var(--text-dark);
+      cursor: pointer; text-decoration: none;
+      transition: all 0.15s;
+      box-shadow: 0 1px 3px rgba(15,27,45,0.05);
+    }
+    .qa-btn:hover { border-color: var(--primary); color: var(--primary); background: #EEF3FB; }
+    .qa-btn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    .qa-btn.primary-outline {
+      border-color: var(--primary); color: var(--primary); background: #EEF3FB;
+    }
+
+    /* pending badge on quick action */
+    .qa-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 18px; height: 18px; padding: 0 5px;
+      background: var(--warning); color: #fff;
+      border-radius: 99px; font-size: 10px; font-weight: 700;
+      font-family: 'DM Mono', monospace;
+    }
+
+    /* ═══════════════════════════════════════════
+       RECENT DOCUMENTS TABLE CARD
+    ═══════════════════════════════════════════ */
+    .table-card {
+      background: #fff;
+      border-radius: 14px;
+      border: 1px solid var(--border-light);
+      box-shadow: 0 1px 4px rgba(15,27,45,0.05);
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    .table-card-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-light);
+    }
+    .table-card-title {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 14px; font-weight: 700; color: var(--text-dark);
+    }
+    .table-card-title svg { width: 15px; height: 15px; stroke: var(--primary); fill: none; stroke-width: 2; stroke-linecap: round; }
+
+    .view-all-link {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 12px; font-weight: 600; color: var(--primary);
+      text-decoration: none; transition: gap 0.15s;
+    }
+    .view-all-link:hover { gap: 7px; }
+    .view-all-link svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+
+    .table-wrap { overflow-x: auto; }
+
+    .dash-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .dash-table thead { background: #FAFBFC; }
+    .dash-table th {
+      padding: 10px 16px;
+      text-align: left;
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.4px; color: var(--text-light);
+      border-bottom: 1px solid var(--border-light);
+    }
+    .dash-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid #F4F6FA;
+      color: var(--text-dark); vertical-align: middle;
+    }
+    .dash-table tr:last-child td { border-bottom: none; }
+    .dash-table tbody tr { transition: background 0.12s; }
+    .dash-table tbody tr:hover { background: #F7F9FF; }
+
+    .vendor-cell { display: flex; align-items: center; gap: 8px; }
+    .vendor-initials {
+      width: 30px; height: 30px; border-radius: 8px;
+      background: var(--bg-light); border: 1px solid var(--border-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700; color: var(--text-light);
+      flex-shrink: 0;
+    }
+    .vendor-name-text { font-weight: 600; color: var(--text-dark); }
+    .new-badge {
+      font-size: 9px; font-weight: 700;
+      background: #DBEAFE; color: #1D4ED8;
+      padding: 1px 5px; border-radius: 4px;
+      letter-spacing: 0.3px;
+    }
+    .flag-dot {
+      display: inline-flex; align-items: center; gap: 3px;
+      font-size: 10px; font-weight: 600; color: #B45309;
+      background: #FEF3C7; padding: 1px 6px; border-radius: 4px;
+    }
+    .flag-dot svg { width: 9px; height: 9px; stroke: #D97706; fill: none; stroke-width: 2.5; stroke-linecap: round; }
+
+    .inv-mono { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text-light); }
+    .amount-cell { font-family: 'DM Mono', monospace; font-weight: 600; font-size: 13px; }
+
+    /* status pills */
+    .s-pill {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 3px 9px; border-radius: 99px;
+      font-size: 11px; font-weight: 600; white-space: nowrap;
+    }
+    .s-pill svg { width: 10px; height: 10px; stroke: currentColor; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
+    .s-pill.approved  { background: #D1FAE5; color: #065F46; }
+    .s-pill.pending_review { background: #FEF3C7; color: #92400E; }
+    .s-pill.flagged   { background: #FEE2E2; color: #991B1B; }
+    .s-pill.processing { background: #DBEAFE; color: #1E40AF; }
+    .s-pill.rejected  { background: #F3F4F6; color: #6B7280; }
+
+    /* spinner for processing */
+    .spin-sm {
+      width: 10px; height: 10px;
+      border: 1.5px solid #93C5FD;
+      border-top-color: #1E40AF;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* confidence pill */
+    .conf-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 7px; border-radius: 99px;
+      font-size: 10px; font-weight: 700; font-family: 'DM Mono', monospace;
+    }
+    .conf-pill.high   { background: #D1FAE5; color: #065F46; }
+    .conf-pill.medium { background: #FEF3C7; color: #92400E; }
+    .conf-pill.low    { background: #FEE2E2; color: #991B1B; }
+
+    /* action button in table */
+    .tbl-action {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 5px 11px;
+      border: 1px solid var(--border-light); border-radius: 7px;
+      background: #fff; font-size: 12px; font-weight: 600;
+      color: var(--primary); cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: all 0.14s; text-decoration: none;
+    }
+    .tbl-action:hover { border-color: var(--primary); background: #EEF3FB; }
+    .tbl-action svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; }
+
+    /* ═══════════════════════════════════════════
+       EMPTY STATE
+    ═══════════════════════════════════════════ */
+    .empty-state {
+      text-align: center; padding: 56px 32px;
+      background: #fff; border-radius: 14px;
+      border: 1px solid var(--border-light);
+      margin-bottom: 24px; display: none;
+    }
+    .empty-state.show { display: block; }
+    .empty-icon {
+      width: 56px; height: 56px; border-radius: 16px;
+      background: #EEF3FB; margin: 0 auto 16px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .empty-icon svg { width: 26px; height: 26px; stroke: var(--primary); fill: none; stroke-width: 1.8; stroke-linecap: round; }
+    .empty-title { font-size: 18px; font-weight: 700; color: var(--text-dark); margin-bottom: 6px; }
+    .empty-text  { font-size: 13px; color: var(--text-light); margin-bottom: 20px; }
+
+    /* ═══════════════════════════════════════════
+       COMPLIANCE FOOTNOTE — subtle, not shouty
+    ═══════════════════════════════════════════ */
+    .compliance-footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-light);
+    }
+
+    .compliance-toggle {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 600; color: var(--text-light);
+      background: none; border: none; cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: color 0.15s; padding: 0; margin-bottom: 0;
+    }
+    .compliance-toggle:hover { color: var(--text-dark); }
+    .compliance-toggle svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; transition: transform 0.2s; }
+    .compliance-toggle.open svg.chevron { transform: rotate(180deg); }
+
+    .compliance-body {
+      display: none;
+      margin-top: 14px;
+      padding: 16px 18px;
+      background: #FAFBFC;
+      border: 1px solid var(--border-light);
+      border-radius: 10px;
+    }
+    .compliance-body.open { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+
+    .comp-item {
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .comp-icon {
+      width: 28px; height: 28px; border-radius: 7px;
+      background: var(--bg-light); border: 1px solid var(--border-light);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .comp-icon svg { width: 13px; height: 13px; stroke: var(--text-light); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .comp-title { font-size: 11px; font-weight: 700; color: var(--text-dark); margin-bottom: 2px; }
+    .comp-desc  { font-size: 11px; color: var(--text-light); line-height: 1.4; }
+
+    .comp-audit {
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: #fff;
+      border: 1px solid var(--border-light);
+      border-radius: 8px;
+      display: flex; align-items: flex-start; gap: 8px;
+      font-size: 11px; color: var(--text-light); line-height: 1.5;
+    }
+    .comp-audit svg { width: 13px; height: 13px; stroke: var(--text-light); fill: none; stroke-width: 2; stroke-linecap: round; flex-shrink: 0; margin-top: 1px; }
+
+    /* ═══════════════════════════════════════════
+       RESPONSIVE
+    ═══════════════════════════════════════════ */
+    @media (max-width: 1000px) {
+      .kpi-grid { grid-template-columns: repeat(2,1fr); }
+    }
+    /* ── Mobile sidebar overlay ────────────────────────── */
+    .sidebar-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(10,20,40,0.5);
+      z-index: 99;
+      backdrop-filter: blur(2px);
+    }
+    .sidebar-overlay.show { display: block; }
+
+    @media (max-width: 900px) {
+      .main-content { padding: 16px 16px 40px; }
+      .compliance-body.open { grid-template-columns: 1fr; }
+      .page-wrapper { margin-left: 0 !important; }
+      /* Sidebar slides in as a drawer on mobile */
+      .sidebar {
+        position: fixed !important;
+        left: 0; top: 0; bottom: 0;
+        transform: translateX(-100%);
+        z-index: 100;
+        width: 260px !important;
+        box-shadow: 4px 0 24px rgba(15,27,45,0.18);
+      }
+      .sidebar.mobile-open {
+        transform: translateX(0) !important;
+      }
+      .sidebar.collapsed { width: 260px !important; transform: translateX(-100%); }
+      .collapse-btn { display: none; }
+    }
+
+    @media (max-width: 1000px) and (min-width: 901px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    @media (max-width: 640px) {
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .quick-strip { gap: 8px; }
+      .qa-btn { flex: 1 1 calc(50% - 4px); justify-content: center; min-width: 0; }
+      .pg-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+      .btn-upload { width: 100%; justify-content: center; }
+    }
+    @media (max-width: 400px) {
+      .kpi-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ── Mobile: table → cards ──────────────────────────── */
+    @media (max-width: 700px) {
+      .table-wrap { padding: 0; }
+      .dash-table thead { display: none; }
+      .dash-table tbody tr {
+        display: block;
+        margin: 0 16px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--border-light);
+        padding: 14px;
+        box-shadow: 0 1px 4px rgba(15,27,45,0.05);
+        background: #fff;
+      }
+      .dash-table tbody tr:hover { background: #F7F9FF; }
+      .dash-table td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 5px 0;
+        border: none;
+        font-size: 13px;
+      }
+      .dash-table td:first-child { padding-bottom: 10px; border-bottom: 1px solid var(--border-light); margin-bottom: 4px; }
+      .dash-table td::before {
+        content: attr(data-label);
+        font-size: 10px; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.4px;
+        color: var(--text-light);
+        flex-shrink: 0; margin-right: 8px;
+      }
+      .dash-table td:first-child::before { display: none; }
+      .dash-table td .vendor-cell { flex-direction: row; }
+      .dash-table td:last-child { padding-top: 10px; border-top: 1px solid var(--border-light); margin-top: 4px; justify-content: flex-end; }
+      .dash-table td:last-child::before { display: none; }
+    }
+  </style>
+  <script>
+    // ─── Single authoritative sidebar/menu functions ───────────────────────────
+
+    const COLLAPSE_KEY = 'sb_collapsed';
+
+    function toggleSidebarCollapse() {
+      const sidebar = document.getElementById('mainSidebar');
+      if (!sidebar) return;
+      const collapsed = sidebar.classList.toggle('collapsed');
+      collapsed
+        ? localStorage.setItem(COLLAPSE_KEY, '1')
+        : localStorage.removeItem(COLLAPSE_KEY);
+    }
+
+    function openMobileSidebar() {
+      const sidebar = document.getElementById('mainSidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      if (sidebar) sidebar.classList.add('mobile-open');
+      if (overlay) overlay.classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeMobileSidebar() {
+      const sidebar = document.getElementById('mainSidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      if (sidebar) sidebar.classList.remove('mobile-open');
+      if (overlay) overlay.classList.remove('show');
+      document.body.style.overflow = '';
+    }
+
+    function toggleUserMenu() {
+      const dropdown = document.getElementById('sbuDropdown');
+      if (dropdown) dropdown.classList.toggle('open');
+    }
+
+    // Close user menu when clicking outside
+    document.addEventListener('click', function(event) {
+      const dropdown = document.getElementById('sbuDropdown');
+      const trigger  = document.getElementById('sbuTrigger');
+      if (dropdown && trigger && !trigger.contains(event.target) && !dropdown.contains(event.target)) {
+        dropdown.classList.remove('open');
+      }
+    });
+
+    // Restore sidebar collapse state + wire mobile nav links on DOM ready
+    window.addEventListener('DOMContentLoaded', function() {
+      const sidebar = document.getElementById('mainSidebar');
+      if (sidebar && localStorage.getItem(COLLAPSE_KEY) && window.innerWidth > 900) {
+        sidebar.classList.add('collapsed');
+      }
+      document.querySelectorAll('.sidebar-nav a').forEach(function(a) {
+        a.addEventListener('click', function() {
+          if (window.innerWidth <= 900) closeMobileSidebar();
+        });
+      });
+    });
+  </script>
+</head>
+<body>
+<div class="dashboard-container">
+
+  <!-- ═══ SIDEBAR ══════════════════════════════════════════════════════════ -->
+  <!-- Sidebar overlay for mobile -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobileSidebar()"></div>
+
+  <aside class="sidebar" id="mainSidebar">
+    <!-- Collapse toggle — sits on aside directly, NOT inside scroll container -->
+    <button class="collapse-btn" id="collapseBtn" onclick="toggleSidebarCollapse()" title="Collapse sidebar" aria-label="Collapse sidebar">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+
+    <!-- Inner scroll container — scrollbar stays here, away from collapse button -->
+    <div class="sidebar-scroll">
+    <div class="sidebar-logo">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+        <polyline points="13 2 13 9 20 9"/>
+      </svg>
+      <span>InvoiceIQ</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="/dashboard/" class="active">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="/upload/">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span>Upload Invoice</span>
+      </a>
+      <a href="/history/">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/><polyline points="12 7 12 12 16 14"/></svg>
+        <span>Document History</span>
+      </a>
+      <a href="/reports/">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        <span>Reports</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-section-label">System</div>
+
+    <nav class="sidebar-nav">
+      <a href="#">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+        <span>Settings</span>
+      </a>
+      <a href="#">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span>Audit Logs</span>
+      </a>
+    </nav>
+
+    <!-- Push user block to bottom -->
+    <div class="sidebar-spacer"></div>
+
+    <!-- User block -->
+    <div class="sidebar-user-block">
+      <div class="sidebar-user-inner" id="sbuTrigger" onclick="toggleUserMenu()">
+        <div class="sbu-avatar sidebar-user-avatar" data-user-initials>SK</div>
+        <div class="sbu-info">
+          <div class="sbu-name sidebar-user-name" data-user-name>Sarah Jenkins</div>
+          <div class="sbu-role sidebar-user-role" data-user-role>Enterprise Admin</div>
+        </div>
+        <button class="sbu-menu-btn" aria-label="User menu">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+        </button>
+
+        <!-- Dropdown -->
+        <div class="sbu-dropdown" id="sbuDropdown">
+          <div class="sbu-dropdown-header">
+            <div class="sbu-dropdown-name" data-user-name>Sarah Jenkins</div>
+            <div class="sbu-dropdown-email" data-user-email>sarah@company.com</div>
+          </div>
+          <a href="#" class="sbu-dropdown-item">
+            <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            My Profile
+          </a>
+          <a href="#" class="sbu-dropdown-item">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+            Settings
+          </a>
+          <div class="sbu-dropdown-divider"></div>
+          <button class="sbu-dropdown-item danger" onclick="handleLogout(event)">
+            <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Log Out
+          </button>
+        </div>
+      </div>
+    </div>
+    </div><!-- end .sidebar-scroll -->
+  </aside>
+
+  <!-- ═══ PAGE WRAPPER ══════════════════════════════════════════════════════ -->
+  <div class="page-wrapper">
+
+    <!-- Top Nav -->
+    <nav class="top-nav">
+      <div class="nav-left">
+        <button class="hamburger" onclick="openMobileSidebar()"><span></span><span></span><span></span></button>
+        <div class="nav-greeting">Good morning, Sarah</div>
+      </div>
+      <div class="nav-right">
+        <div class="search-box">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+            <circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1.5"/>
+            <path d="M10 10L15 15" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          <input type="text" placeholder="Search invoices…">
+        </div>
+        <button class="nav-icon" data-notification-bell aria-label="Notifications">
+          <svg viewBox="0 0 24 24">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <div class="notification-badge"></div>
+        </button>
+        <div class="user-avatar">JD</div>
+      </div>
+      <div class="notification-dropdown">
+        <div class="notification-item">
+          <div class="notification-title">Invoice Processed</div>
+          <div class="notification-time">5 minutes ago</div>
+        </div>
+        <div class="notification-item">
+          <div class="notification-title">New Document Ready</div>
+          <div class="notification-time">15 minutes ago</div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ═══ MAIN CONTENT ════════════════════════════════════════════════════ -->
+    <main class="main-content">
+
+      <!-- Heading row -->
+      <div class="pg-row">
+        <div>
+          <h1>Dashboard</h1>
+          <p>Welcome back! Here's your invoice processing overview.</p>
+        </div>
+        <a href="/upload/" class="btn-upload">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Upload New Invoice
+        </a>
+      </div>
+
+      <!-- KPI cards -->
+      <div class="kpi-grid">
+
+        <!-- Invoices this month -->
+        <div class="kpi-card blue">
+          <div class="kpi-top">
+            <div class="kpi-icon blue">
+              <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <span class="kpi-badge up">+12%</span>
+          </div>
+          <div class="kpi-label">Invoices This Month</div>
+          <div class="kpi-value" data-kpi="invoices_this_month">—</div>
+          <div class="kpi-sub">vs last month</div>
+        </div>
+
+        <!-- Pending review — clickable with CTA -->
+        <div class="kpi-card amber">
+          <div class="kpi-top">
+            <div class="kpi-icon amber">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <span class="kpi-badge warn">Action needed</span>
+          </div>
+          <div class="kpi-label">Pending Review</div>
+          <div class="kpi-value" data-kpi="pending_review">—</div>
+          <a href="/history/" class="kpi-cta">
+            Review now
+            <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+          </a>
+        </div>
+
+        <!-- Processed today -->
+        <div class="kpi-card green">
+          <div class="kpi-top">
+            <div class="kpi-icon green">
+              <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+          <div class="kpi-label">Processed Today</div>
+          <div class="kpi-value" data-kpi="processed_today">—</div>
+          <div class="kpi-sub">Avg. 1.2s each</div>
+        </div>
+
+        <!-- Cost saved -->
+        <div class="kpi-card purple">
+          <div class="kpi-top">
+            <div class="kpi-icon purple">
+              <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+          </div>
+          <div class="kpi-label">Cost Saved</div>
+          <div class="kpi-value" data-kpi="cost_saved">—</div>
+          <div class="kpi-sub">Automation benefit</div>
+        </div>
+      </div>
+
+      <!-- Quick actions strip -->
+      <div class="quick-strip">
+        <a href="/upload/" class="qa-btn primary-outline">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Upload Invoice
+        </a>
+        <a href="/history/?filter=pending_review" class="qa-btn">
+          <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          Pending Reviews
+          <span class="qa-badge" data-kpi="pending_review">—</span>
+        </a>
+        <a href="/history/" class="qa-btn">
+          <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><polyline points="12 7 12 12 16 14"/></svg>
+          View All History
+        </a>
+        <a href="/reports/" class="qa-btn">
+          <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Reports
+        </a>
+      </div>
+
+      <!-- Recent Documents -->
+      <div class="table-card">
+        <div class="table-card-head">
+          <div class="table-card-title">
+            <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Recent Documents
+          </div>
+          <a href="/history/" class="view-all-link">
+            View all
+            <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+          </a>
+        </div>
+        <div class="table-wrap">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Vendor</th>
+                <th>Invoice No.</th>
+                <th>Date</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Confidence</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody data-recent-invoices>
+              <!-- Skeleton rows while loading -->
+              <tr>
+                <td colspan="7" style="padding:32px;text-align:center;color:var(--text-light);font-size:13px;">
+                  Loading recent invoices…
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Empty state (shown by JS when no invoices) -->
+      <div id="empty-state" class="empty-state">
+        <div class="empty-icon">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <div class="empty-title">No invoices yet</div>
+        <div class="empty-text">Upload your first invoice to get started with AI-powered extraction.</div>
+        <a href="/upload/" class="btn-upload" style="display:inline-flex;">
+          <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Upload First Invoice
+        </a>
+      </div>
+
+      <!-- Compliance footnote — subtle, collapsible -->
+      <div class="compliance-footer">
+        <button class="compliance-toggle" id="compToggle" onclick="toggleCompliance()">
+          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Security &amp; Compliance information
+          <svg class="chevron" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div class="compliance-body" id="compBody">
+          <div class="comp-item">
+            <div class="comp-icon">
+              <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <div>
+              <div class="comp-title">Enterprise Security</div>
+              <div class="comp-desc">AES-256 encryption, TLS 1.3, HSM-backed keys</div>
+            </div>
+          </div>
+          <div class="comp-item">
+            <div class="comp-icon">
+              <svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            </div>
+            <div>
+              <div class="comp-title">Compliance</div>
+              <div class="comp-desc">SOC 2 Type II, GDPR, HIPAA ready</div>
+            </div>
+          </div>
+          <div class="comp-item">
+            <div class="comp-icon">
+              <svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+            </div>
+            <div>
+              <div class="comp-title">Data Residency</div>
+              <div class="comp-desc">US-only storage, no international transfers</div>
+            </div>
+          </div>
+          <div class="comp-audit" style="grid-column:1/-1;">
+            <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <span><strong>Audit Trail &amp; Monitoring</strong> — All user actions are logged and monitored. Regular penetration testing and security audits are performed by independent third parties.</span>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal">
+  <div class="modal-content">
+    <button class="modal-close">&times;</button>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
+      <div>
+        <h2 style="font-size:18px;font-weight:700;margin-bottom:3px;">Invoice Details</h2>
+        <p style="font-size:12px;color:var(--text-light);">INV-2023-001</p>
+      </div>
+      <span class="s-pill approved">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        Approved
+      </span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;padding:14px;background:var(--bg-light);border-radius:10px;">
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-light);margin-bottom:3px;letter-spacing:.4px;">Vendor</div><div style="font-weight:600;font-size:13px;">ABC Suppliers Ltd</div></div>
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-light);margin-bottom:3px;letter-spacing:.4px;">Invoice Number</div><div style="font-weight:600;font-size:13px;font-family:'DM Mono',monospace;">INV-2023-001</div></div>
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-light);margin-bottom:3px;letter-spacing:.4px;">Invoice Date</div><div style="font-weight:600;font-size:13px;">Oct 24, 2023</div></div>
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-light);margin-bottom:3px;letter-spacing:.4px;">Due Date</div><div style="font-weight:600;font-size:13px;">Nov 24, 2023</div></div>
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-light);margin-bottom:3px;letter-spacing:.4px;">Total Amount</div><div style="font-weight:700;font-size:20px;color:var(--primary);font-family:'DM Mono',monospace;">$1,250.00</div></div>
+      <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--text-light);margin-bottom:3px;letter-spacing:.4px;">Reviewed By</div><div style="font-weight:600;font-size:13px;">Sarah K.</div></div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--text-light);margin-bottom:10px;letter-spacing:.4px;">Line Items</div>
+      <table style="width:100%;font-size:12px;border-collapse:collapse;">
+        <thead><tr style="background:var(--bg-light);">
+          <th style="padding:7px 10px;text-align:left;border-bottom:1px solid var(--border-light);font-size:10px;text-transform:uppercase;color:var(--text-light);letter-spacing:.4px;">Item</th>
+          <th style="padding:7px 10px;text-align:center;border-bottom:1px solid var(--border-light);font-size:10px;text-transform:uppercase;color:var(--text-light);">Qty</th>
+          <th style="padding:7px 10px;text-align:right;border-bottom:1px solid var(--border-light);font-size:10px;text-transform:uppercase;color:var(--text-light);">Unit Price</th>
+          <th style="padding:7px 10px;text-align:right;border-bottom:1px solid var(--border-light);font-size:10px;text-transform:uppercase;color:var(--text-light);">Total</th>
+        </tr></thead>
+        <tbody>
+          <tr><td style="padding:8px 10px;border-bottom:1px solid var(--border-light);">Office Supplies</td><td style="padding:8px 10px;border-bottom:1px solid var(--border-light);text-align:center;">50</td><td style="padding:8px 10px;border-bottom:1px solid var(--border-light);text-align:right;font-family:'DM Mono',monospace;">$15.00</td><td style="padding:8px 10px;border-bottom:1px solid var(--border-light);text-align:right;font-family:'DM Mono',monospace;font-weight:600;">$750.00</td></tr>
+          <tr><td style="padding:8px 10px;">Equipment Rental</td><td style="padding:8px 10px;text-align:center;">2</td><td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;">$250.00</td><td style="padding:8px 10px;text-align:right;font-family:'DM Mono',monospace;font-weight:600;">$500.00</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:14px;border-top:1px solid var(--border-light);">
+      <button onclick="document.querySelector('.modal').classList.remove('active')" style="padding:9px 18px;border:1px solid var(--border-light);border-radius:8px;background:#fff;cursor:pointer;font-weight:600;font-size:13px;font-family:'DM Sans',sans-serif;">Close</button>
+      <a href="/history/" style="padding:9px 18px;background:var(--primary);color:#fff;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;display:inline-flex;align-items:center;gap:6px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+        Full History
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Compliance toggle ─────────────────────────────────────────
+  function toggleCompliance() {
+    document.getElementById('compToggle').classList.toggle('open');
+    document.getElementById('compBody').classList.toggle('open');
+  }
+</script>
+
+<script src="{% static 'js/main.js' %}"></script>
+</body>
+</html>
