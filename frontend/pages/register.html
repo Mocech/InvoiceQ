@@ -579,11 +579,17 @@
         const data = await response.json();
 
         if (!response.ok) {
-          // Handle field-level errors from DRF
-          if (data.email)    _showFieldError('email',    Array.isArray(data.email)    ? data.email[0]    : data.email);
-          if (data.password) _showFieldError('password', Array.isArray(data.password) ? data.password[0] : data.password);
-          if (data.error)    _showError(data.error);
-          if (!data.email && !data.password && !data.error) {
+          // Handle field-level errors from backend
+          if (data.first_name)        _showFieldError('first_name',        Array.isArray(data.first_name)        ? data.first_name[0]        : data.first_name);
+          if (data.last_name)         _showFieldError('last_name',         Array.isArray(data.last_name)         ? data.last_name[0]         : data.last_name);
+          if (data.email)             _showFieldError('email',             Array.isArray(data.email)             ? data.email[0]             : data.email);
+          if (data.password)          _showFieldError('password',          Array.isArray(data.password)          ? data.password[0]          : data.password);
+          if (data.organization_name) _showFieldError('organization_name', Array.isArray(data.organization_name) ? data.organization_name[0] : data.organization_name);
+          
+          // Show general error message
+          if (data.error) {
+            _showError(data.error);
+          } else if (!data.first_name && !data.last_name && !data.email && !data.password && !data.organization_name) {
             _showError('Registration failed. Please check your details and try again.');
           }
           return;

@@ -22,6 +22,7 @@ User = get_user_model()
 
 
 @api_view(['POST'])
+@permission_classes([AllowAny])
 def register(request):
     """
     POST /api/auth/register/
@@ -69,14 +70,23 @@ def register(request):
         errors['organization_name'] = 'Organisation name is required.'
 
     if errors:
-        return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+        # Format errors in a way the frontend expects
+        # Send all field-specific errors plus a general error message
+        error_messages = list(errors.values())
+        
+        return Response({
+            **errors,  # Include all field-specific errors
+            'error': error_messages[0] if len(error_messages) == 1 else 'Please correct the errors and try again.'
+        }, status=status.HTTP_400_BAD_REQUEST)
 
     # ── Create organization ───────────────────────────────────────────────
     # Check if org with this name already exists — if so, don't duplicate
     org, org_created = Organization.objects.get_or_create(
         name=org_name,
         defaults={
-            'industry': data.get('industry', ''),
+            'plan': 'starter',
+            'storage_limit_gb': 10.0,
+            'invoice_limit_per_month': 1000,
         }
     )
 
@@ -105,10 +115,10 @@ def register(request):
         'user': {
             'id':               user.id,
             'email':            user.email,
-            'full_name':        user.get_full_name(),
+            'full_name':        user.full_name,
             'role':             user.role,
             'organization':     org.name,
-            'avatar_initials':  (first_name[0] + last_name[0]).upper() if first_name and last_name else 'U',
+            'avatar_initials':  user.avatar_initials,
         }
     }, status=status.HTTP_201_CREATED)
 
